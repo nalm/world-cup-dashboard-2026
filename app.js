@@ -95,10 +95,13 @@ const GROUPS = {
 
 // 3. 경기 일정 및 상태 저장용 변수
 let matchScores = {}; // matchId -> { homeScore: num, awayScore: num, pkHome: num, pkAway: num }
+let lockedMatches = {}; // matchId -> boolean (실제 경기 또는 수동 입력으로 고정된 매치)
+let actualMatches = {}; // matchId -> boolean (실제 월드컵 경기 결과만 고정 - UI 비활성화용)
 let groupStandings = {}; // groupLetter -> array of team objects sorted
 let thirdsStandings = []; // array of 12 third-place teams
 let r32Pairings = {}; // matchId (73~88) -> { homeTeamCode: str, awayTeamCode: str }
 let tournamentMatches = {}; // matchId (73~104) -> { homeCode: str, awayCode: str, homeScore: num, awayScore: num, pkHome: num, pkAway: num, winner: str }
+
 
 // 라운드별 경기 번호 범위
 const R32_MIN = 73, R32_MAX = 88;
@@ -182,6 +185,8 @@ function initApp() {
 
 function resetData() {
   matchScores = {};
+  lockedMatches = {}; // 잠금 매치 초기화
+  actualMatches = {}; // 실제 경기 초기화
   
   // 조별 경기 스코어 객체 초기화 (72경기)
   Object.keys(GROUPS).forEach(groupLetter => {
@@ -376,6 +381,13 @@ function renderGroupStageLayout() {
         matchScores[matchId].homeScore = val;
       } else {
         matchScores[matchId].awayScore = val;
+      }
+      
+      // 수동 입력 완료 시 고정(Lock) 처리
+      if (matchScores[matchId].homeScore !== null && matchScores[matchId].awayScore !== null) {
+        lockedMatches[matchId] = true;
+      } else {
+        delete lockedMatches[matchId];
       }
       
       calculateAll();
@@ -723,10 +735,13 @@ function simulateGroup(groupLetter) {
   const teamCodes = GROUPS[groupLetter];
   for (let i = 0; i < 6; i++) {
     const matchId = `G_${groupLetter}_${i}`;
-    // 만약 이미 점수가 입력되어 있다면(수동 입력 또는 API 동기화) 건너뜀
-    if (matchScores[matchId] && matchScores[matchId].homeScore !== null && matchScores[matchId].awayScore !== null) {
+    // 실제 결과 또는 수동 입력으로 고정된 매치는 시뮬레이션에서 건너뜀
+    if (lockedMatches[matchId]) {
       continue;
     }
+    
+    // 고정되지 않은 경기는 초기화 후 시뮬레이션
+    matchScores[matchId] = { homeScore: null, awayScore: null };
     const scheme = GROUP_MATCH_SCHEME[i];
     const homeCode = teamCodes[scheme.homeIdx];
     const awayCode = teamCodes[scheme.awayIdx];
@@ -756,10 +771,17 @@ function simulateKnockoutStage() {
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const match = tournamentMatches[matchId];
     if (match.homeCode && match.awayCode) {
-      // 이미 결과가 채워져 있다면 건너뜀
-      if (match.homeScore !== null && match.awayScore !== null) {
+      // 실제 결과 또는 수동 입력으로 고정된 매치는 보존
+      if (lockedMatches[matchId]) {
         continue;
       }
+      
+      // 고정되지 않은 경기는 리셋 후 재시뮬레이션
+      match.homeScore = null;
+      match.awayScore = null;
+      match.pkHome = null;
+      match.pkAway = null;
+      match.winner = "";
       const result = simulateMatchScore(match.homeCode, match.awayCode);
       match.homeScore = result.goals1;
       match.awayScore = result.goals2;
@@ -1032,8 +1054,8 @@ function renderGroupTablesAndInputs() {
         homeInput.value = score.homeScore !== null ? score.homeScore : "";
         awayInput.value = score.awayScore !== null ? score.awayScore : "";
         
-        // 경기가 종료된 경우 입력 제한
-        if (score.homeScore !== null && score.awayScore !== null) {
+        // 실제 결과로 고정된(actual) 경우에만 입력창 잠금
+        if (actualMatches[matchId]) {
           homeInput.setAttribute("disabled", "true");
           awayInput.setAttribute("disabled", "true");
         } else {
@@ -1168,7 +1190,7 @@ function buildMatchCardElement(matchId, roundKey) {
   // 무승부 PK 상황 유무 검사
   const showPK = match.homeScore !== null && match.awayScore !== null && match.homeScore === match.awayScore;
   
-  const isFinished = match.homeScore !== null && match.awayScore !== null;
+  const isFinished = actualMatches[matchId] === true;
   const isHomeDisabled = !homeTeam || !awayTeam || isFinished;
   const isAwayDisabled = !homeTeam || !awayTeam || isFinished;
 
@@ -1223,6 +1245,13 @@ function buildMatchCardElement(matchId, roundKey) {
       } else {
         match.awayScore = val;
       }
+
+      // 수동 입력 완료 시 고정(Lock) 처리
+      if (match.homeScore !== null && match.awayScore !== null) {
+        lockedMatches[matchId] = true;
+      } else {
+        delete lockedMatches[matchId];
+      }
       
       calculateAll();
       updateUI();
@@ -1239,6 +1268,11 @@ function buildMatchCardElement(matchId, roundKey) {
         match.pkHome = val;
       } else {
         match.pkAway = val;
+      }
+
+      // 승부차기 입력 완료 시 고정(Lock) 처리
+      if (match.pkHome !== null && match.pkAway !== null) {
+        lockedMatches[matchId] = true;
       }
       
       calculateAll();
@@ -1277,9 +1311,9 @@ function simulateSingleKnockout(matchId) {
     return;
   }
 
-  // 완료된 경기는 시뮬레이션 불가 처리
-  if (match.homeScore !== null && match.awayScore !== null) {
-    showToast("⚠️ 이미 완료된 경기입니다. 결과를 변경할 수 없습니다.");
+  // 고정된 경기는 시뮬레이션 불가 처리
+  if (lockedMatches[matchId]) {
+    showToast("⚠️ 이미 완료된 실제 경기이거나 수동 고정된 경기입니다. 결과를 변경할 수 없습니다.");
     return;
   }
 
@@ -1528,9 +1562,9 @@ function runSingleWorldCupSimulation() {
       const awayCode = teamCodes[awayIdx];
 
       let g1, g2;
-      // 글로벌 matchScores에 실제/수동 경기 결과가 있는지 체크
-      const globalScore = matchScores[matchId];
-      if (globalScore && globalScore.homeScore !== null && globalScore.awayScore !== null) {
+      // 글로벌 matchScores에 실제/수동 경기 결과(locked)가 등록되어 있는지 체크
+      if (lockedMatches[matchId]) {
+        const globalScore = matchScores[matchId];
         g1 = globalScore.homeScore;
         g2 = globalScore.awayScore;
       } else {
@@ -1688,11 +1722,14 @@ function runSingleWorldCupSimulation() {
     }
 
     if (m.homeCode && m.awayCode) {
-      // 글로벌 tournamentMatches에 실제/수동 결과가 존재하고 매치업 국가가 동일하다면 그대로 사용
-      const globalKO = tournamentMatches[matchId];
-      if (globalKO && globalKO.homeCode === m.homeCode && globalKO.awayCode === m.awayCode &&
-          globalKO.homeScore !== null && globalKO.awayScore !== null) {
-        m.winner = globalKO.winner;
+      // 글로벌 tournamentMatches에 고정된 결과(locked)가 존재하고 매치업 국가가 동일하다면 그대로 사용
+      if (lockedMatches[matchId]) {
+        const globalKO = tournamentMatches[matchId];
+        if (globalKO && globalKO.homeCode === m.homeCode && globalKO.awayCode === m.awayCode) {
+          m.winner = globalKO.winner;
+        } else {
+          m.winner = simulateWinnerLocal(m.homeCode, m.awayCode);
+        }
       } else {
         m.winner = simulateWinnerLocal(m.homeCode, m.awayCode);
       }
@@ -1840,6 +1877,12 @@ async function fetchWithTimeout(resource, options = {}) {
 // 실제 월드컵 API 결과 동기화
 async function syncActualResults() {
   showToast("🔄 실제 경기 결과 동기화 중...");
+  
+  // 시뮬레이션 데이터를 리셋하고 실제 데이터만 입력하기 위해 데이터 초기화 호출
+  resetData();
+  calculateAll();
+  updateUI();
+  
   try {
     // 1단계: API 직접 호출 시도 (타임아웃 3초)
     const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 3000 });
@@ -1979,6 +2022,8 @@ function applyActualResults(apiGames) {
 
             if (!existing || existing.homeScore !== nextScore.homeScore || existing.awayScore !== nextScore.awayScore) {
               matchScores[matchId] = nextScore;
+              lockedMatches[matchId] = true; // 실제 결과 고정(Lock)
+              actualMatches[matchId] = true; // 실제 결과 표시(UI 비활성화용)
               updatedCount++;
             }
             break;
@@ -2026,6 +2071,8 @@ function applyActualResults(apiGames) {
               match.pkAway = null;
               match.winner = targetHomeScore > targetAwayScore ? match.homeCode : match.awayCode;
             }
+            lockedMatches[matchId] = true; // 실제 결과 고정(Lock)
+            actualMatches[matchId] = true; // 실제 결과 표시(UI 비활성화용)
             updatedCount++;
           }
           break;
