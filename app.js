@@ -1792,12 +1792,32 @@ const ENGLISH_NAME_TO_CODE = {
   "England": "ENG", "Croatia": "CRO", "Ghana": "GHA", "Panama": "PAN"
 };
 
+// fetch에 타임아웃을 설정하는 헬퍼 함수
+async function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 3000 } = options; // 기본 타임아웃 3초
+  
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+}
+
 // 실제 월드컵 API 결과 동기화
 async function syncActualResults() {
   showToast("🔄 실제 경기 결과 동기화 중...");
   try {
-    // 1단계: API 직접 호출 시도 (CORS 허용 시)
-    const res = await fetch('https://worldcup26.ir/get/games');
+    // 1단계: API 직접 호출 시도 (타임아웃 3초)
+    const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 3000 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.games) {
@@ -1813,9 +1833,9 @@ async function syncActualResults() {
   } catch (err) {
     console.warn("Direct API fetch failed, attempting proxy...", err);
     try {
-      // 2단계: AllOrigins CORS 프록시 활용 우회 시도
+      // 2단계: AllOrigins CORS 프록시 활용 우회 시도 (타임아웃 3초)
       const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
-      const res = await fetch(proxyUrl);
+      const res = await fetchWithTimeout(proxyUrl, { timeout: 3000 });
       if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
       const data = await res.json();
       if (data && data.contents) {
@@ -1832,9 +1852,21 @@ async function syncActualResults() {
       }
       throw new Error("Invalid proxy wrapper response");
     } catch (proxyErr) {
-      console.error("All sync attempts failed", proxyErr);
-      showToast("⚠️ 실제 결과 연동 실패 (네트워크/CORS 오류). 수동 입력 기반으로 동작합니다.");
-      return 0;
+      console.error("All sync attempts failed, applying local test fallback", proxyErr);
+      showToast("ℹ️ API 연결 제한으로 인해 테스트용 대한민국 3 : 2 체코 결과를 강제 반영합니다.");
+      
+      // API 연결 실패 시에도 테스트가 가능하도록 대한민국 vs 체코 3:2 결과를 주입
+      const testGames = [{
+        id: "2",
+        home_team_name_en: "South Korea",
+        away_team_name_en: "Czech Republic",
+        home_score: "3",
+        away_score: "2",
+        finished: "TRUE",
+        type: "group",
+        group: "A"
+      }];
+      return applyActualResults(testGames);
     }
   }
 }
@@ -1843,6 +1875,48 @@ async function syncActualResults() {
 function applyActualResults(apiGames) {
   let updatedCount = 0;
   
+  // [테스트 기능] 대한민국 vs 체코 경기 결과를 대한민국 3 : 2 체코 완료 상태로 강제 설정 (사용자 요청)
+  apiGames = apiGames.map(game => {
+    const isKOR = game.home_team_name_en === "South Korea" || game.away_team_name_en === "South Korea" ||
+                  game.home_team_name_en === "Korea Republic" || game.away_team_name_en === "Korea Republic" ||
+                  game.home_team_name_en === "South Korea Republic" || game.away_team_name_en === "South Korea Republic";
+    const isCZE = game.home_team_name_en === "Czech Republic" || game.away_team_name_en === "Czech Republic" ||
+                  game.home_team_name_en === "Czechia" || game.away_team_name_en === "Czechia";
+                  
+    if (isKOR && isCZE) {
+      const isHomeKorea = game.home_team_name_en.includes("Korea") || game.home_team_name_en.includes("Republic");
+      return {
+        ...game,
+        finished: "TRUE",
+        home_score: isHomeKorea ? "3" : "2",
+        away_score: isHomeKorea ? "2" : "3"
+      };
+    }
+    return game;
+  });
+  
+  // 만약 체코 vs 한국 경기가 API에 누락된 경우 테스트를 위해 강제 주입
+  const hasKORvsCZE = apiGames.some(game => {
+    const isKOR = game.home_team_name_en === "South Korea" || game.away_team_name_en === "South Korea" ||
+                  game.home_team_name_en === "Korea Republic" || game.away_team_name_en === "Korea Republic";
+    const isCZE = game.home_team_name_en === "Czech Republic" || game.away_team_name_en === "Czech Republic" ||
+                  game.home_team_name_en === "Czechia" || game.away_team_name_en === "Czechia";
+    return isKOR && isCZE;
+  });
+
+  if (!hasKORvsCZE) {
+    apiGames.push({
+      id: "2",
+      home_team_name_en: "South Korea",
+      away_team_name_en: "Czech Republic",
+      home_score: "3",
+      away_score: "2",
+      finished: "TRUE",
+      type: "group",
+      group: "A"
+    });
+  }
+
   apiGames.forEach(game => {
     const homeCode = ENGLISH_NAME_TO_CODE[game.home_team_name_en];
     const awayCode = ENGLISH_NAME_TO_CODE[game.away_team_name_en];
