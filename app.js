@@ -1374,6 +1374,7 @@ function startMonteCarloSimulation() {
     }
     
     currentRun = endRun;
+    mcStats.totalRuns = currentRun;
     const progress = Math.round((currentRun / totalRuns) * 100);
     bar.style.width = `${progress}%`;
     statusText.textContent = `시뮬레이션 진행률: ${currentRun.toLocaleString()} / 10,000 회 분석 완료`;
