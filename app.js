@@ -176,10 +176,8 @@ function initApp() {
   calculateAll();
   updateUI();
   
-  // 실제 경기 결과가 존재하는 경우 API에서 가져와 연동하고, 완료 후 몬테카를로 실행
-  syncActualResults().then(() => {
-    startMonteCarloSimulation();
-  });
+  // 최초 진입 시에는 빈 상태(실제결과 연동 전)로 몬테카를로 즉시 실행
+  startMonteCarloSimulation();
 }
 
 function resetData() {
@@ -279,7 +277,10 @@ function bindEvents() {
   const btnSync = document.getElementById("btn-sync-results");
   if (btnSync) {
     btnSync.addEventListener("click", () => {
-      syncActualResults();
+      syncActualResults().then(() => {
+        // 동기화 완료 후 한국팀 확률 재연산 (체코전 승리가 반영된 새로운 확률 도출)
+        startMonteCarloSimulation();
+      });
     });
   }
 }
@@ -1020,12 +1021,26 @@ function renderGroupTablesAndInputs() {
       tbody.appendChild(tr);
     });
 
-    // 기존 입력창 값 동기화
+    // 기존 입력창 값 동기화 및 이미 완료된 경기(실제 경기/동기화) 비활성화
     for (let i = 0; i < 6; i++) {
       const matchId = `G_${groupLetter}_${i}`;
       const score = matchScores[matchId];
-      document.getElementById(`score-${matchId}-home`).value = score.homeScore !== null ? score.homeScore : "";
-      document.getElementById(`score-${matchId}-away`).value = score.awayScore !== null ? score.awayScore : "";
+      const homeInput = document.getElementById(`score-${matchId}-home`);
+      const awayInput = document.getElementById(`score-${matchId}-away`);
+      
+      if (homeInput && awayInput) {
+        homeInput.value = score.homeScore !== null ? score.homeScore : "";
+        awayInput.value = score.awayScore !== null ? score.awayScore : "";
+        
+        // 경기가 종료된 경우 입력 제한
+        if (score.homeScore !== null && score.awayScore !== null) {
+          homeInput.setAttribute("disabled", "true");
+          awayInput.setAttribute("disabled", "true");
+        } else {
+          homeInput.removeAttribute("disabled");
+          awayInput.removeAttribute("disabled");
+        }
+      }
     }
   });
 }
@@ -1152,6 +1167,10 @@ function buildMatchCardElement(matchId, roundKey) {
 
   // 무승부 PK 상황 유무 검사
   const showPK = match.homeScore !== null && match.awayScore !== null && match.homeScore === match.awayScore;
+  
+  const isFinished = match.homeScore !== null && match.awayScore !== null;
+  const isHomeDisabled = !homeTeam || !awayTeam || isFinished;
+  const isAwayDisabled = !homeTeam || !awayTeam || isFinished;
 
   card.innerHTML = `
     <div class="ko-match-header">
@@ -1166,10 +1185,10 @@ function buildMatchCardElement(matchId, roundKey) {
         <span class="team-name" title="${homeLabel}">${homeLabel}</span>
       </div>
       <div class="ko-score-block">
-        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="PK" value="${match.pkHome !== null ? match.pkHome : ''}">` : ''}
+        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="PK" value="${match.pkHome !== null ? match.pkHome : ''}" ${isFinished ? 'disabled' : ''}>` : ''}
         <input type="number" min="0" max="99" class="score-input ko-score ko-score-input" 
                id="score-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="-" 
-               value="${match.homeScore !== null ? match.homeScore : ''}" ${!homeTeam || !awayTeam ? 'disabled' : ''}>
+               value="${match.homeScore !== null ? match.homeScore : ''}" ${isHomeDisabled ? 'disabled' : ''}>
       </div>
     </div>
     
@@ -1180,10 +1199,10 @@ function buildMatchCardElement(matchId, roundKey) {
         <span class="team-name" title="${awayLabel}">${awayLabel}</span>
       </div>
       <div class="ko-score-block">
-        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="PK" value="${match.pkAway !== null ? match.pkAway : ''}">` : ''}
+        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="PK" value="${match.pkAway !== null ? match.pkAway : ''}" ${isFinished ? 'disabled' : ''}>` : ''}
         <input type="number" min="0" max="99" class="score-input ko-score ko-score-input" 
                id="score-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="-" 
-               value="${match.awayScore !== null ? match.awayScore : ''}" ${!homeTeam || !awayTeam ? 'disabled' : ''}>
+               value="${match.awayScore !== null ? match.awayScore : ''}" ${isAwayDisabled ? 'disabled' : ''}>
       </div>
     </div>
   `;
@@ -1255,6 +1274,12 @@ function simulateSingleKnockout(matchId) {
   const match = tournamentMatches[matchId];
   if (!match.homeCode || !match.awayCode) {
     showToast("⚠️ 아직 진출 국가가 결정되지 않았습니다.");
+    return;
+  }
+
+  // 완료된 경기는 시뮬레이션 불가 처리
+  if (match.homeScore !== null && match.awayScore !== null) {
+    showToast("⚠️ 이미 완료된 경기입니다. 결과를 변경할 수 없습니다.");
     return;
   }
 
