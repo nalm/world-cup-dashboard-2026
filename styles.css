@@ -1,0 +1,1033 @@
+/* ==========================================================================
+   2026 FIFA World Cup Dashboard & Simulator - Styles
+   ========================================================================== */
+
+/* --- 1. 변수 정의 및 테마 --- */
+:root {
+  --font-title: 'Outfit', 'Inter', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  
+  /* 다크 테마 기본값 */
+  --bg-color: #080b16;
+  --header-bg: rgba(14, 20, 38, 0.85);
+  --card-bg: rgba(20, 28, 52, 0.65);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  
+  --accent-primary: #00f2fe;
+  --accent-secondary: #4facfe;
+  --accent-glow: rgba(0, 242, 254, 0.15);
+  
+  --color-win: #00f5a0;
+  --color-win-bg: rgba(0, 245, 160, 0.1);
+  --color-loss: #ff4b2b;
+  --color-loss-bg: rgba(255, 75, 43, 0.1);
+  --color-draw: #e2e8f0;
+  --color-draw-bg: rgba(226, 232, 240, 0.1);
+  
+  --color-gold: #ffd700;
+  --color-silver: #c0c0c0;
+  --color-bronze: #cd7f32;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+}
+
+.light-theme {
+  --bg-color: #f3f4f6;
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --card-bg: rgba(255, 255, 255, 0.75);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  
+  --accent-primary: #4facfe;
+  --accent-secondary: #00f2fe;
+  --accent-glow: rgba(79, 172, 254, 0.15);
+  
+  --color-win: #059669;
+  --color-win-bg: rgba(5, 150, 105, 0.1);
+  --color-loss: #dc2626;
+  --color-loss-bg: rgba(220, 38, 38, 0.1);
+  --color-draw: #4b5563;
+  --color-draw-bg: rgba(75, 85, 99, 0.1);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* --- 2. 기본 리셋 및 글로벌 스타일 --- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  overflow-x: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
+  min-height: 100vh;
+}
+
+/* 블러 장식용 백그라운드 효과 */
+.bg-blur {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(140px);
+  z-index: -1;
+  opacity: 0.35;
+  pointer-events: none;
+  transition: all 0.5s ease;
+}
+.blur-1 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+  top: -100px;
+  right: -50px;
+}
+.blur-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--accent-secondary) 0%, transparent 70%);
+  bottom: -150px;
+  left: -100px;
+}
+.blur-3 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.4) 0%, transparent 70%);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* --- 3. 헤더 (App Header) --- */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  margin-top: 20px;
+  background: var(--header-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  gap: 20px;
+  z-index: 10;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.logo-text h1 {
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.logo-text p {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--text-secondary);
+}
+
+.header-stats {
+  display: flex;
+  gap: 24px;
+}
+.stat-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.stat-mini .label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.stat-mini .value {
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.mini-progress-bar {
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.light-theme .mini-progress-bar {
+  background: rgba(0, 0, 0, 0.1);
+}
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  transition: width 0.4s ease;
+}
+
+.global-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- 4. 공통 버튼 컴포넌트 --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+  color: #040815;
+  box-shadow: 0 4px 14px rgba(0, 242, 254, 0.25);
+}
+.btn-primary:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+.light-theme .btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+.light-theme .btn-secondary:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+}
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-primary);
+}
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--text-secondary);
+}
+.light-theme .btn-outline:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.btn:disabled, .btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* 테마 토글 버튼 */
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+}
+.light-theme .theme-toggle {
+  background: rgba(0, 0, 0, 0.05);
+}
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+.light-theme .theme-toggle:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* --- 5. 내비게이션 탭 --- */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 5px;
+}
+.tab-btn {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 12px 20px;
+  cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+.light-theme .tab-btn:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.tab-btn.active {
+  color: var(--accent-primary);
+}
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 2px;
+}
+
+/* --- 6. 메인 컨텐츠 & 카드 공통 --- */
+.main-content {
+  flex: 1;
+  padding: 24px 0;
+}
+.tab-panel {
+  display: none;
+}
+.tab-panel.active {
+  display: block;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.card.glass {
+  backdrop-filter: blur(12px);
+}
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-md);
+}
+.light-theme .card:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.stage-control-header {
+  margin-bottom: 24px;
+}
+.stage-control-header h2 {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.stage-control-header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* --- 7. 대시보드 탭 (Overview) --- */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 챔피언 배너 */
+.champion-card {
+  grid-column: span 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(145deg, rgba(20, 28, 52, 0.8), rgba(10, 15, 30, 0.9));
+  border: 2px solid rgba(255, 215, 0, 0.2);
+  text-align: center;
+}
+.champion-card h3 {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--color-gold);
+  margin-bottom: 16px;
+}
+.champion-trophy {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+}
+.trophy-glow {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.35) 0%, transparent 70%);
+  filter: blur(10px);
+  animation: pulse 2.5s infinite alternate;
+}
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+.trophy-emoji {
+  font-size: 5rem;
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+}
+.champion-info {
+  margin-top: 15px;
+  min-height: 80px;
+}
+.placeholder-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.champ-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: scaleUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes scaleUp {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.champ-flag {
+  font-size: 2.8rem;
+}
+.champ-name {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+.champ-stats {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* 주요 통계 카드 그룹 */
+.stats-card-group {
+  grid-column: span 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 20px;
+}
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.light-theme .stat-card {
+  background: rgba(0, 0, 0, 0.02);
+}
+.stat-icon {
+  font-size: 1.8rem;
+  background: rgba(255, 255, 255, 0.05);
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.light-theme .stat-icon {
+  background: rgba(0, 0, 0, 0.05);
+}
+.stat-details {
+  display: flex;
+  flex-direction: column;
+}
+.stat-num {
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+#korea-stat-card {
+  border-left: 4px solid #ef4444; /* 한국팀 태극기 빨간색 강조 느낌 */
+  background: rgba(239, 68, 68, 0.03);
+}
+#korea-status {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+.light-theme #korea-status {
+  color: #dc2626;
+}
+
+/* 대회 안내 카드 */
+.info-card {
+  grid-column: span 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.info-card h3 {
+  font-family: var(--font-title);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.info-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.quick-simulation-helper {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quick-simulation-helper .btn {
+  width: 100%;
+}
+
+/* --- 8. 조별 예선 탭 (Group Stage) --- */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  gap: 24px;
+}
+@media (max-width: 550px) {
+  .groups-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.group-card {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--card-border);
+  padding-bottom: 8px;
+}
+.group-header h3 {
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+}
+.group-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn-mini {
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+}
+
+/* 순위표 테이블 */
+.table-wrapper {
+  overflow-x: auto;
+}
+.standing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  text-align: center;
+}
+.standing-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--card-border);
+}
+.standing-table td {
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  vertical-align: middle;
+}
+.light-theme .standing-table td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.02);
+}
+.standing-table tr.qualify-direct td:nth-child(3) {
+  font-weight: 600;
+}
+/* 진출구역 표시 (1,2위 녹색 라인, 3위 노란 라인) */
+.standing-table tr.qualify-direct {
+  background: rgba(0, 245, 160, 0.04);
+}
+.standing-table tr.qualify-third {
+  background: rgba(255, 215, 0, 0.02);
+}
+.standing-table tr td:first-child {
+  font-weight: 700;
+  width: 25px;
+}
+.standing-table tr.qualify-direct td:first-child {
+  color: var(--color-win);
+}
+.team-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  font-weight: 500;
+}
+.flag-emoji {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* 매치 리스트 */
+.group-matches {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--card-border);
+  padding-top: 14px;
+}
+.match-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.015);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  gap: 10px;
+}
+.light-theme .match-item {
+  background: rgba(0, 0, 0, 0.015);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+}
+.match-team {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.match-team.team-home {
+  justify-content: flex-end;
+  text-align: right;
+}
+.match-team.team-away {
+  justify-content: flex-start;
+  text-align: left;
+}
+.match-score-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.score-input {
+  width: 34px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.light-theme .score-input {
+  background: rgba(0, 0, 0, 0.05);
+}
+.score-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 5px var(--accent-glow);
+}
+/* 스피너 제거 */
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.score-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.match-divider {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* --- 9. 3위 팀 순위 비교 탭 (3rd Place Comparison) --- */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.styled-table th {
+  background: rgba(255, 255, 255, 0.02);
+  font-family: var(--font-title);
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 12px 8px;
+  border-bottom: 2px solid var(--card-border);
+}
+.light-theme .styled-table th {
+  background: rgba(0, 0, 0, 0.02);
+}
+.styled-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--card-border);
+}
+.styled-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+.styled-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.01);
+}
+.light-theme .styled-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.styled-table tbody tr.row-qualify {
+  background: rgba(0, 245, 160, 0.04);
+}
+.styled-table tbody tr.row-eliminate {
+  background: rgba(255, 75, 43, 0.03);
+}
+
+.badge {
+  display: inline-flex;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 50px;
+}
+.badge-success {
+  background: var(--color-win-bg);
+  color: var(--color-win);
+  border: 1px solid rgba(0, 245, 160, 0.2);
+}
+.badge-danger {
+  background: var(--color-loss-bg);
+  color: var(--color-loss);
+  border: 1px solid rgba(255, 75, 43, 0.2);
+}
+.badge-neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+/* --- 10. 본선 토너먼트 대진표 탭 (Knockout Bracket) --- */
+.bracket-viewport {
+  overflow-x: auto;
+  padding: 20px 0;
+  cursor: grab;
+}
+.bracket-viewport:active {
+  cursor: grabbing;
+}
+.bracket-container {
+  display: flex;
+  gap: 40px;
+  min-width: 1400px;
+  padding: 20px 10px;
+}
+.bracket-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 250px;
+}
+.col-title {
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--card-border);
+  padding-bottom: 8px;
+}
+.match-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.match-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 15px;
+}
+
+/* 토너먼트 매치 카드 */
+.ko-match-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+.ko-match-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: var(--shadow-md);
+}
+.light-theme .ko-match-card:hover {
+  border-color: rgba(0, 0, 0, 0.18);
+}
+.ko-match-card.korea-highlight {
+  border: 1.5px solid #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+  background: linear-gradient(135deg, var(--card-bg) 70%, rgba(239, 68, 68, 0.08) 100%);
+}
+
+.ko-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  padding-bottom: 4px;
+}
+.light-theme .ko-match-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+.ko-match-sim {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 0.75rem;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.ko-match-sim:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.ko-team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.ko-team-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+}
+.ko-team-info .team-name {
+  max-width: 140px;
+}
+.ko-team-row.winner {
+  font-weight: 700;
+}
+.ko-team-row.winner .team-name {
+  color: var(--accent-primary);
+}
+.light-theme .ko-team-row.winner .team-name {
+  color: var(--text-primary);
+}
+.ko-team-row.loser {
+  opacity: 0.55;
+}
+.ko-team-row.loser .score-input, .ko-team-row.loser .pk-input {
+  opacity: 0.7;
+}
+
+/* 스코어 및 승부차기 입력 */
+.ko-score-block {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ko-score {
+  width: 30px;
+  height: 24px;
+  font-size: 0.8rem;
+}
+.pk-input {
+  width: 24px;
+  height: 20px;
+  background: rgba(255, 75, 43, 0.1);
+  border: 1px solid rgba(255, 75, 43, 0.2);
+  border-radius: 3px;
+  color: var(--color-loss);
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.pk-input::placeholder {
+  color: rgba(255, 75, 43, 0.4);
+}
+.pk-input:focus {
+  border-color: var(--color-loss);
+}
+
+/* 결승전 컬럼용 서브그룹 */
+.finals-matches {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+  height: 100%;
+}
+.finals-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.finals-sub-title {
+  font-family: var(--font-title);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- 11. 푸터 (App Footer) --- */
+.app-footer {
+  text-align: center;
+  padding: 30px 0;
+  border-top: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* --- 12. 공통 모달 및 스낵바 (피드백용) --- */
+/* (사용 편의를 위한 텍스트 애니메이션) */
+.toast-msg {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #0e1527, #1b2644);
+  border: 1px solid var(--accent-primary);
+  color: var(--text-primary);
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease forwards;
+}
+@keyframes slideIn {
+  from { transform: translateY(100px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

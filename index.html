@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 FIFA World Cup - 실시간 현황판 & 시뮬레이터</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+  <!-- 배경 데코레이션 블러 서클 -->
+  <div class="bg-blur blur-1"></div>
+  <div class="bg-blur blur-2"></div>
+  <div class="bg-blur blur-3"></div>
+
+  <div class="app-container">
+    <!-- 사이드바 또는 상단 헤더 -->
+    <header class="app-header">
+      <div class="logo-area">
+        <span class="logo-icon">🏆</span>
+        <div class="logo-text">
+          <h1>FIFA WORLD CUP 2026</h1>
+          <p>UNITED - CANADA · MEXICO · USA</p>
+        </div>
+      </div>
+
+      <!-- 글로벌 경기 요약 정보 (HUD) -->
+      <div class="header-stats">
+        <div class="stat-mini">
+          <span class="label">진행 상황</span>
+          <span class="value" id="hdr-progress">0%</span>
+          <div class="mini-progress-bar">
+            <div class="bar-fill" id="hdr-progress-bar" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="stat-mini">
+          <span class="label">총 경기수</span>
+          <span class="value" id="hdr-matches">0 / 104</span>
+        </div>
+        <div class="stat-mini">
+          <span class="label">총 득점수</span>
+          <span class="value" id="hdr-goals">0 gol</span>
+        </div>
+      </div>
+
+      <!-- 액션 버튼 영역 -->
+      <div class="global-actions">
+        <button id="btn-simulate-all" class="btn btn-primary" title="FIFA 랭킹 기반 점수 일괄 생성">
+          <span class="icon">⚡</span> 전체 시뮬레이션
+        </button>
+        <button id="btn-reset" class="btn btn-outline" title="모든 경기 결과 초기화">
+          <span class="icon">🔄</span> 초기화
+        </button>
+        <div class="theme-toggle" id="theme-toggle" title="테마 전환">
+          <span class="toggle-icon">🌙</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 내비게이션 탭 -->
+    <nav class="tab-navigation">
+      <button class="tab-btn active" data-tab="tab-overview">
+        <span class="tab-icon">📊</span> 대시보드
+      </button>
+      <button class="tab-btn" data-tab="tab-groups">
+        <span class="tab-icon">⚽</span> 조별 예선 (12개 조)
+      </button>
+      <button class="tab-btn" data-tab="tab-thirds">
+        <span class="tab-icon">⚖️</span> 3위 팀 순위 비교
+      </button>
+      <button class="tab-btn" data-tab="tab-bracket">
+        <span class="tab-icon">🌿</span> 토너먼트 대진표
+      </button>
+    </nav>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="main-content">
+      
+      <!-- 탭 1: 대시보드 (Overview) -->
+      <section id="tab-overview" class="tab-panel active">
+        <div class="dashboard-grid">
+          <!-- 카드: 챔피언 배너 -->
+          <div class="card glass champion-card">
+            <div class="card-glow"></div>
+            <div class="champion-content">
+              <h3>2026 WORLD CUP CHAMPION</h3>
+              <div class="champion-trophy">
+                <div class="trophy-glow"></div>
+                <span class="trophy-emoji">🏆</span>
+              </div>
+              <div id="champion-info" class="champion-info">
+                <p class="placeholder-text">모든 토너먼트 경기가 끝나면<br>여기에 우승국이 발표됩니다!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 카드: 주요 국가 예측 / 정보 -->
+          <div class="card glass stats-card-group">
+            <div class="stat-card">
+              <div class="stat-icon">📈</div>
+              <div class="stat-details">
+                <span class="stat-num" id="stat-matches-completed">0</span>
+                <span class="stat-label">진행된 경기</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🥅</div>
+              <div class="stat-details">
+                <span class="stat-num" id="stat-total-goals">0</span>
+                <span class="stat-label">총 득점</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-details">
+                <span class="stat-num" id="stat-avg-goals">0.00</span>
+                <span class="stat-label">경기당 평균 득점</span>
+              </div>
+            </div>
+            <div class="stat-card" id="korea-stat-card">
+              <div class="stat-icon">🇰🇷</div>
+              <div class="stat-details">
+                <span class="stat-num" id="korea-status">조별 예선 대기</span>
+                <span class="stat-label">대한민국 대표팀 상태</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 카드: 퀵 링크 및 대회 안내 -->
+          <div class="card glass info-card">
+            <h3>대회 요약</h3>
+            <p>
+              이번 <strong>2026 FIFA 월드컵</strong>은 역사상 최초로 <strong>48개 팀</strong>이 참가하며, 캐나다, 멕시코, 미국 3개국이 공동 개최합니다.
+              기존 32개국에서 확장되면서, 4팀씩 12개 조(A~L조)로 조별 예선이 진행되며 각 조 1, 2위와 <strong>가장 성적이 좋은 3위 팀 8개국</strong>이 합류하여 <strong>32강 토너먼트</strong>가 새롭게 펼쳐집니다.
+            </p>
+            <div class="quick-simulation-helper">
+              <button id="btn-quick-groups" class="btn btn-secondary">조별 예선만 자동 시뮬레이션</button>
+              <button id="btn-quick-knockouts" class="btn btn-secondary" disabled>토너먼트 자동 시뮬레이션</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 탭 2: 조별 예선 (Group Stage) -->
+      <section id="tab-groups" class="tab-panel">
+        <div class="stage-control-header">
+          <h2>조별 예선 현황 (Group Stage)</h2>
+          <p>각 조별 순위표와 경기 결과를 확인할 수 있습니다. 스코어(점수)를 입력하면 순위가 실시간 계산됩니다.</p>
+        </div>
+        <div class="groups-grid" id="groups-container">
+          <!-- JS로 A~L조 순위표 및 경기 일정이 채워집니다. -->
+        </div>
+      </section>
+
+      <!-- 탭 3: 3위 팀 순위 비교 (3rd Place Comparison) -->
+      <section id="tab-thirds" class="tab-panel">
+        <div class="stage-control-header">
+          <h2>조 3위 팀 성적 비교 (Third-Placed Teams)</h2>
+          <p>12개 조의 3위 팀 중 **상위 8개 팀**이 32강 토너먼트에 진출합니다. (승점 > 골득실 > 다득점 > 피파랭킹 순)</p>
+        </div>
+        <div class="card glass table-card">
+          <div class="table-wrapper">
+            <table class="styled-table" id="thirds-table">
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>조</th>
+                  <th>국가</th>
+                  <th>경기수</th>
+                  <th>승</th>
+                  <th>무</th>
+                  <th>패</th>
+                  <th>득실차</th>
+                  <th>득점</th>
+                  <th>승점</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="thirds-table-body">
+                <!-- JS로 3위 팀 데이터가 채워집니다. -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 탭 4: 본선 토너먼트 대진표 (Knockout Bracket) -->
+      <section id="tab-bracket" class="tab-panel">
+        <div class="stage-control-header">
+          <h2>본선 토너먼트 대진표 (Knockout Stages)</h2>
+          <p>조별 예선이 끝나면 32강 대진표가 구성되며, 경기 결과를 직접 입력하거나 각 경기별 시뮬레이션 단추를 눌러 결과를 예측할 수 있습니다.</p>
+        </div>
+        <div class="bracket-viewport">
+          <div class="bracket-container" id="bracket-container">
+            <!-- 32강 (Round of 32) -->
+            <div class="bracket-column" id="col-r32">
+              <h3 class="col-title">32강전 <span class="match-count">(16 경기)</span></h3>
+              <div class="match-list" id="r32-matches"></div>
+            </div>
+            <!-- 16강 (Round of 16) -->
+            <div class="bracket-column" id="col-r16">
+              <h3 class="col-title">16강전 <span class="match-count">(8 경기)</span></h3>
+              <div class="match-list" id="r16-matches"></div>
+            </div>
+            <!-- 8강 (Quarter-finals) -->
+            <div class="bracket-column" id="col-qf">
+              <h3 class="col-title">8강전 <span class="match-count">(4 경기)</span></h3>
+              <div class="match-list" id="qf-matches"></div>
+            </div>
+            <!-- 준결승 (Semi-finals) -->
+            <div class="bracket-column" id="col-sf">
+              <h3 class="col-title">준결승전 <span class="match-count">(2 경기)</span></h3>
+              <div class="match-list" id="sf-matches"></div>
+            </div>
+            <!-- 결승전 & 3·4위전 -->
+            <div class="bracket-column" id="col-finals">
+              <h3 class="col-title">결승전 / 3위 결정전</h3>
+              <div class="match-list" id="finals-matches">
+                <div class="finals-group">
+                  <div class="finals-sub-title">우승 결정전</div>
+                  <div id="final-match-container"></div>
+                </div>
+                <div class="finals-group">
+                  <div class="finals-sub-title">3위 결정전</div>
+                  <div id="third-place-match-container"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="app-footer">
+      <p>&copy; 2026 FIFA World Cup Dashboard & Simulator. Designed for pair programming. Local time: 2026-06-10</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
