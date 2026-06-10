@@ -1920,21 +1920,9 @@ async function syncActualResults() {
       }
       throw new Error("Invalid proxy wrapper response");
     } catch (proxyErr) {
-      console.error("All sync attempts failed, applying local test fallback", proxyErr);
-      showToast("ℹ️ API 연결 제한으로 인해 테스트용 대한민국 3 : 2 체코 결과를 강제 반영합니다.");
-      
-      // API 연결 실패 시에도 테스트가 가능하도록 대한민국 vs 체코 3:2 결과를 주입
-      const testGames = [{
-        id: "2",
-        home_team_name_en: "South Korea",
-        away_team_name_en: "Czech Republic",
-        home_score: "3",
-        away_score: "2",
-        finished: "TRUE",
-        type: "group",
-        group: "A"
-      }];
-      return applyActualResults(testGames);
+      console.error("All sync attempts failed", proxyErr);
+      showToast("❌ 실제 경기 결과 동기화에 실패했습니다. (네트워크 상태나 API 제공처 상태를 확인하세요)");
+      return 0;
     }
   }
 }
@@ -1943,48 +1931,6 @@ async function syncActualResults() {
 function applyActualResults(apiGames) {
   let updatedCount = 0;
   
-  // [테스트 기능] 대한민국 vs 체코 경기 결과를 대한민국 3 : 2 체코 완료 상태로 강제 설정 (사용자 요청)
-  apiGames = apiGames.map(game => {
-    const isKOR = game.home_team_name_en === "South Korea" || game.away_team_name_en === "South Korea" ||
-                  game.home_team_name_en === "Korea Republic" || game.away_team_name_en === "Korea Republic" ||
-                  game.home_team_name_en === "South Korea Republic" || game.away_team_name_en === "South Korea Republic";
-    const isCZE = game.home_team_name_en === "Czech Republic" || game.away_team_name_en === "Czech Republic" ||
-                  game.home_team_name_en === "Czechia" || game.away_team_name_en === "Czechia";
-                  
-    if (isKOR && isCZE) {
-      const isHomeKorea = game.home_team_name_en.includes("Korea") || game.home_team_name_en.includes("Republic");
-      return {
-        ...game,
-        finished: "TRUE",
-        home_score: isHomeKorea ? "3" : "2",
-        away_score: isHomeKorea ? "2" : "3"
-      };
-    }
-    return game;
-  });
-  
-  // 만약 체코 vs 한국 경기가 API에 누락된 경우 테스트를 위해 강제 주입
-  const hasKORvsCZE = apiGames.some(game => {
-    const isKOR = game.home_team_name_en === "South Korea" || game.away_team_name_en === "South Korea" ||
-                  game.home_team_name_en === "Korea Republic" || game.away_team_name_en === "Korea Republic";
-    const isCZE = game.home_team_name_en === "Czech Republic" || game.away_team_name_en === "Czech Republic" ||
-                  game.home_team_name_en === "Czechia" || game.away_team_name_en === "Czechia";
-    return isKOR && isCZE;
-  });
-
-  if (!hasKORvsCZE) {
-    apiGames.push({
-      id: "2",
-      home_team_name_en: "South Korea",
-      away_team_name_en: "Czech Republic",
-      home_score: "3",
-      away_score: "2",
-      finished: "TRUE",
-      type: "group",
-      group: "A"
-    });
-  }
-
   apiGames.forEach(game => {
     const homeCode = ENGLISH_NAME_TO_CODE[game.home_team_name_en];
     const awayCode = ENGLISH_NAME_TO_CODE[game.away_team_name_en];
