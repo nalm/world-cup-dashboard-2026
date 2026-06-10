@@ -175,7 +175,11 @@ function initApp() {
   renderGroupStageLayout();
   calculateAll();
   updateUI();
-  startMonteCarloSimulation();
+  
+  // 실제 경기 결과가 존재하는 경우 API에서 가져와 연동하고, 완료 후 몬테카를로 실행
+  syncActualResults().then(() => {
+    startMonteCarloSimulation();
+  });
 }
 
 function resetData() {
@@ -270,6 +274,14 @@ function bindEvents() {
   document.getElementById("btn-recalculate-mc").addEventListener("click", () => {
     startMonteCarloSimulation();
   });
+
+  // 실제 경기 결과 동기화 버튼
+  const btnSync = document.getElementById("btn-sync-results");
+  if (btnSync) {
+    btnSync.addEventListener("click", () => {
+      syncActualResults();
+    });
+  }
 }
 
 // --- 조별 예선 카드 생성 및 렌더링 ---
@@ -710,6 +722,10 @@ function simulateGroup(groupLetter) {
   const teamCodes = GROUPS[groupLetter];
   for (let i = 0; i < 6; i++) {
     const matchId = `G_${groupLetter}_${i}`;
+    // 만약 이미 점수가 입력되어 있다면(수동 입력 또는 API 동기화) 건너뜀
+    if (matchScores[matchId] && matchScores[matchId].homeScore !== null && matchScores[matchId].awayScore !== null) {
+      continue;
+    }
     const scheme = GROUP_MATCH_SCHEME[i];
     const homeCode = teamCodes[scheme.homeIdx];
     const awayCode = teamCodes[scheme.awayIdx];
@@ -739,6 +755,10 @@ function simulateKnockoutStage() {
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const match = tournamentMatches[matchId];
     if (match.homeCode && match.awayCode) {
+      // 이미 결과가 채워져 있다면 건너뜀
+      if (match.homeScore !== null && match.awayScore !== null) {
+        continue;
+      }
       const result = simulateMatchScore(match.homeCode, match.awayCode);
       match.homeScore = result.goals1;
       match.awayScore = result.goals2;
@@ -1474,6 +1494,7 @@ function runSingleWorldCupSimulation() {
   Object.entries(GROUPS).forEach(([groupLetter, teamCodes]) => {
     const groupStats = standings[groupLetter];
     for (let i = 0; i < 6; i++) {
+      const matchId = `G_${groupLetter}_${i}`;
       const scheme = GROUP_MATCH_SCHEME[i];
       const homeIdx = scheme.homeIdx;
       const awayIdx = scheme.awayIdx;
@@ -1481,17 +1502,25 @@ function runSingleWorldCupSimulation() {
       const homeCode = teamCodes[homeIdx];
       const awayCode = teamCodes[awayIdx];
 
-      const t1 = TEAMS[homeCode];
-      const t2 = TEAMS[awayCode];
-      const rating1 = 1200 / (t1.fifaRank + 4);
-      const rating2 = 1200 / (t2.fifaRank + 4);
-      let lambda1 = 1.35 * Math.sqrt(rating1 / rating2);
-      let lambda2 = 1.35 / Math.sqrt(rating1 / rating2);
-      if (t1.host) lambda1 *= 1.1;
-      if (t2.host) lambda2 *= 1.1;
+      let g1, g2;
+      // 글로벌 matchScores에 실제/수동 경기 결과가 있는지 체크
+      const globalScore = matchScores[matchId];
+      if (globalScore && globalScore.homeScore !== null && globalScore.awayScore !== null) {
+        g1 = globalScore.homeScore;
+        g2 = globalScore.awayScore;
+      } else {
+        const t1 = TEAMS[homeCode];
+        const t2 = TEAMS[awayCode];
+        const rating1 = 1200 / (t1.fifaRank + 4);
+        const rating2 = 1200 / (t2.fifaRank + 4);
+        let lambda1 = 1.35 * Math.sqrt(rating1 / rating2);
+        let lambda2 = 1.35 / Math.sqrt(rating1 / rating2);
+        if (t1.host) lambda1 *= 1.1;
+        if (t2.host) lambda2 *= 1.1;
 
-      const g1 = poissonRandom(lambda1);
-      const g2 = poissonRandom(lambda2);
+        g1 = poissonRandom(lambda1);
+        g2 = poissonRandom(lambda2);
+      }
 
       const hStat = groupStats[homeIdx];
       const aStat = groupStats[awayIdx];
@@ -1634,7 +1663,14 @@ function runSingleWorldCupSimulation() {
     }
 
     if (m.homeCode && m.awayCode) {
-      m.winner = simulateWinnerLocal(m.homeCode, m.awayCode);
+      // 글로벌 tournamentMatches에 실제/수동 결과가 존재하고 매치업 국가가 동일하다면 그대로 사용
+      const globalKO = tournamentMatches[matchId];
+      if (globalKO && globalKO.homeCode === m.homeCode && globalKO.awayCode === m.awayCode &&
+          globalKO.homeScore !== null && globalKO.awayScore !== null) {
+        m.winner = globalKO.winner;
+      } else {
+        m.winner = simulateWinnerLocal(m.homeCode, m.awayCode);
+      }
     }
   }
 
@@ -1734,5 +1770,185 @@ function matchThirdPlaceTeamsLocal(qualifiedGroups) {
   }
 
   if (backtrack(0)) return assignment;
+  return null;
+}
+
+// ==========================================================================
+// 실제 월드컵 경기 결과 API 연동 및 파싱 엔진 (CORS 대응 및 팀 매핑)
+// ==========================================================================
+
+const ENGLISH_NAME_TO_CODE = {
+  "Mexico": "MEX", "South Africa": "RSA", "South Korea": "KOR", "Korea Republic": "KOR", "South Korea Republic": "KOR", "Czech Republic": "CZE", "Czechia": "CZE",
+  "Canada": "CAN", "Bosnia and Herzegovina": "BIH", "Bosnia-Herzegovina": "BIH", "Qatar": "QAT", "Switzerland": "SUI",
+  "Brazil": "BRA", "Morocco": "MAR", "Scotland": "SCO", "Haiti": "HAI",
+  "United States": "USA", "USA": "USA", "Paraguay": "PAR", "Australia": "AUS", "Turkey": "TUR", "Türkiye": "TUR",
+  "Germany": "GER", "Ecuador": "ECU", "Ivory Coast": "CIV", "Cote d'Ivoire": "CIV", "Curaçao": "CUW", "Curacao": "CUW",
+  "Netherlands": "NED", "Japan": "JPN", "Sweden": "SWE", "Tunisia": "TUN",
+  "Belgium": "BEL", "Egypt": "EGY", "Iran": "IRN", "New Zealand": "NZL",
+  "Spain": "ESP", "Uruguay": "URU", "Saudi Arabia": "KSA", "Cape Verde": "CPV", "Cabo Verde": "CPV",
+  "France": "FRA", "Senegal": "SEN", "Iraq": "IRQ", "Norway": "NOR",
+  "Argentina": "ARG", "Algeria": "ALG", "Austria": "AUT", "Jordan": "JOR",
+  "Portugal": "POR", "DR Congo": "COD", "Uzbekistan": "UZB", "Colombia": "COL",
+  "England": "ENG", "Croatia": "CRO", "Ghana": "GHA", "Panama": "PAN"
+};
+
+// 실제 월드컵 API 결과 동기화
+async function syncActualResults() {
+  showToast("🔄 실제 경기 결과 동기화 중...");
+  try {
+    // 1단계: API 직접 호출 시도 (CORS 허용 시)
+    const res = await fetch('https://worldcup26.ir/get/games');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && data.games) {
+      const updated = applyActualResults(data.games);
+      if (updated > 0) {
+        showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료!`);
+      } else {
+        showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
+      }
+      return updated;
+    }
+    throw new Error("Invalid API response format");
+  } catch (err) {
+    console.warn("Direct API fetch failed, attempting proxy...", err);
+    try {
+      // 2단계: AllOrigins CORS 프록시 활용 우회 시도
+      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.contents) {
+        const parsed = JSON.parse(data.contents);
+        if (parsed && parsed.games) {
+          const updated = applyActualResults(parsed.games);
+          if (updated > 0) {
+            showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (프록시)`);
+          } else {
+            showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
+          }
+          return updated;
+        }
+      }
+      throw new Error("Invalid proxy wrapper response");
+    } catch (proxyErr) {
+      console.error("All sync attempts failed", proxyErr);
+      showToast("⚠️ 실제 결과 연동 실패 (네트워크/CORS 오류). 수동 입력 기반으로 동작합니다.");
+      return 0;
+    }
+  }
+}
+
+// API 결과를 로컬 데이터 상태에 적용
+function applyActualResults(apiGames) {
+  let updatedCount = 0;
+  
+  apiGames.forEach(game => {
+    const homeCode = ENGLISH_NAME_TO_CODE[game.home_team_name_en];
+    const awayCode = ENGLISH_NAME_TO_CODE[game.away_team_name_en];
+    
+    if (!homeCode || !awayCode) return;
+
+    const finished = String(game.finished).toUpperCase() === "TRUE";
+    if (!finished) return; // 아직 종료되지 않은 경기는 무시
+
+    const homeScore = parseInt(game.home_score, 10);
+    const awayScore = parseInt(game.away_score, 10);
+    if (isNaN(homeScore) || isNaN(awayScore)) return;
+
+    // 1. 조별 예선 경기 매칭
+    if (game.type === "group" || String(game.id).startsWith("G") || parseInt(game.id, 10) <= 72) {
+      const groupLetter = game.group || getGroupLetterForTeams(homeCode, awayCode);
+      if (!groupLetter) return;
+
+      const teamCodes = GROUPS[groupLetter];
+      if (teamCodes) {
+        for (let i = 0; i < 6; i++) {
+          const scheme = GROUP_MATCH_SCHEME[i];
+          const homeSchemeCode = teamCodes[scheme.homeIdx];
+          const awaySchemeCode = teamCodes[scheme.awayIdx];
+          
+          if ((homeCode === homeSchemeCode && awayCode === awaySchemeCode) ||
+              (homeCode === awaySchemeCode && awayCode === homeSchemeCode)) {
+            const matchId = `G_${groupLetter}_${i}`;
+            
+            // 데이터 변경이 있을 때만 갱신
+            const existing = matchScores[matchId];
+            const nextScore = homeCode === homeSchemeCode 
+              ? { homeScore, awayScore } 
+              : { homeScore: awayScore, awayScore: homeScore };
+
+            if (!existing || existing.homeScore !== nextScore.homeScore || existing.awayScore !== nextScore.awayScore) {
+              matchScores[matchId] = nextScore;
+              updatedCount++;
+            }
+            break;
+          }
+        }
+      }
+    } 
+    // 2. 토너먼트 경기 매칭
+    else {
+      // 32강부터 결승전까지 팀 대진이 구성된 상태에서 실제 결과 적용
+      for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
+        const match = tournamentMatches[matchId];
+        // 현재 매치 슬롯의 국가들과 일치하는지 체크
+        if ((match.homeCode === homeCode && match.awayCode === awayCode) ||
+            (match.homeCode === awayCode && match.awayCode === homeCode)) {
+          
+          const targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
+          const targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+
+          if (match.homeScore !== targetHomeScore || match.awayScore !== targetAwayScore) {
+            match.homeScore = targetHomeScore;
+            match.awayScore = targetAwayScore;
+
+            // 승부차기 처리 (무승부인 경우)
+            if (targetHomeScore === targetAwayScore) {
+              const pkHome = parseInt(game.home_pk || game.pk_home || game.home_penalty, 10);
+              const pkAway = parseInt(game.away_pk || game.pk_away || game.away_penalty, 10);
+              
+              if (!isNaN(pkHome) && !isNaN(pkAway)) {
+                match.pkHome = pkHome;
+                match.pkAway = pkAway;
+                match.winner = pkHome > pkAway ? match.homeCode : match.awayCode;
+              } else {
+                // 승부차기 결과가 없거나 파싱 실패 시, 승패 결정을 위해 임의 시뮬레이션 적용
+                const rankHome = TEAMS[match.homeCode].fifaRank;
+                const rankAway = TEAMS[match.awayCode].fifaRank;
+                const homeAdv = rankHome < rankAway ? 5 : 4;
+                const awayAdv = rankHome < rankAway ? 4 : 5;
+                match.pkHome = homeAdv;
+                match.pkAway = awayAdv;
+                match.winner = homeAdv > awayAdv ? match.homeCode : match.awayCode;
+              }
+            } else {
+              match.pkHome = null;
+              match.pkAway = null;
+              match.winner = targetHomeScore > targetAwayScore ? match.homeCode : match.awayCode;
+            }
+            updatedCount++;
+          }
+          break;
+        }
+      }
+    }
+  });
+
+  if (updatedCount > 0) {
+    calculateAll();
+    updateUI();
+  }
+
+  return updatedCount;
+}
+
+// 두 국가가 속한 조를 찾는 헬퍼 함수
+function getGroupLetterForTeams(code1, code2) {
+  for (const [group, teams] of Object.entries(GROUPS)) {
+    if (teams.includes(code1) && teams.includes(code2)) {
+      return group;
+    }
+  }
   return null;
 }
