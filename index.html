@@ -11,6 +11,18 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="dark-theme">
+  <!-- 몬테카를로 로딩 스크린 -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loader-content">
+      <div class="loader-cup">🏆</div>
+      <h2>대한민국 기적의 우승 확률 계산 중...</h2>
+      <div class="loader-bar-container">
+        <div class="loader-bar-fill" id="loader-progress-bar" style="width: 0%"></div>
+      </div>
+      <p class="loader-status-text" id="loader-status">시뮬레이션 준비 중...</p>
+    </div>
+  </div>
+
   <!-- 배경 데코레이션 블러 서클 -->
   <div class="bg-blur blur-1"></div>
   <div class="bg-blur blur-2"></div>
@@ -139,6 +151,21 @@
             <div class="quick-simulation-helper">
               <button id="btn-quick-groups" class="btn btn-secondary">조별 예선만 자동 시뮬레이션</button>
               <button id="btn-quick-knockouts" class="btn btn-secondary" disabled>토너먼트 자동 시뮬레이션</button>
+            </div>
+          </div>
+
+          <!-- 몬테카를로 분석 결과 카드 -->
+          <div class="card glass monte-carlo-card" style="grid-column: span 3; margin-top: 10px;">
+            <div class="monte-carlo-header">
+              <h3>🇰🇷 대한민국 몬테카를로 10,000회 시뮬레이션 분석</h3>
+              <button id="btn-recalculate-mc" class="btn btn-secondary btn-mini">기적의 확률 재계산</button>
+            </div>
+            <p class="mc-desc">피파 랭킹 가중치 기반 포아송 엔진으로 전체 경기(104경기)를 10,000번 가상 시뮬레이션하여 대한민국 대표팀이 각 단계에 도달할 최종 확률 예측 모델입니다.</p>
+            <div class="mc-results-grid" id="mc-results-container">
+              <!-- JS로 확률 그래프가 렌더링됩니다. -->
+            </div>
+            <div class="mc-opponent-section" id="mc-opponent-container">
+              <!-- JS로 가장 자주 만난 32강 상대 팀이 렌더링됩니다. -->
             </div>
           </div>
         </div>

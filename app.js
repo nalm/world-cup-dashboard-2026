@@ -175,6 +175,7 @@ function initApp() {
   renderGroupStageLayout();
   calculateAll();
   updateUI();
+  startMonteCarloSimulation();
 }
 
 function resetData() {
@@ -263,6 +264,11 @@ function bindEvents() {
   document.getElementById("btn-reset").addEventListener("click", () => {
     initApp();
     showToast("🔄 모든 경기 결과가 초기화되었습니다.");
+  });
+
+  // 몬테카를로 재계산 버튼
+  document.getElementById("btn-recalculate-mc").addEventListener("click", () => {
+    startMonteCarloSimulation();
   });
 }
 
@@ -1314,4 +1320,418 @@ function showToast(message) {
     toast.style.animation = "slideIn 0.3s ease reverse forwards";
     setTimeout(() => toast.remove(), 300);
   }, 3500);
+}
+
+// ==========================================================================
+// 몬테카를로 10,000회 시뮬레이션 엔진 및 UI 연동
+// ==========================================================================
+
+let mcStats = {
+  totalRuns: 0,
+  korRounds: {
+    groupOut: 0,
+    r32: 0,
+    r16: 0,
+    qf: 0,
+    sf: 0,
+    final: 0,
+    champ: 0
+  },
+  r32Opponents: {}
+};
+
+// 몬테카를로 시뮬레이션 비동기 실행 및 프로그레스바 렌더링
+function startMonteCarloSimulation() {
+  const overlay = document.getElementById("loading-overlay");
+  const bar = document.getElementById("loader-progress-bar");
+  const statusText = document.getElementById("loader-status");
+
+  // 로딩 오버레이 노출 및 리셋
+  overlay.classList.remove("fade-out");
+  overlay.style.display = "flex";
+  bar.style.width = "0%";
+  statusText.textContent = "시뮬레이션 분석 준비 중...";
+
+  mcStats = {
+    totalRuns: 0,
+    korRounds: { groupOut: 0, r32: 0, r16: 0, qf: 0, sf: 0, final: 0, champ: 0 },
+    r32Opponents: {}
+  };
+
+  const totalRuns = 10000;
+  const chunkSize = 1000; // 프레임 드랍을 막기 위한 청크 분할 시뮬레이션
+  let currentRun = 0;
+
+  function runNextChunk() {
+    const endRun = Math.min(currentRun + chunkSize, totalRuns);
+    
+    for (let run = currentRun; run < endRun; run++) {
+      const result = runSingleWorldCupSimulation();
+      mcStats.korRounds[result.korStage]++;
+      if (result.korR32Opponent) {
+        mcStats.r32Opponents[result.korR32Opponent] = (mcStats.r32Opponents[result.korR32Opponent] || 0) + 1;
+      }
+    }
+    
+    currentRun = endRun;
+    const progress = Math.round((currentRun / totalRuns) * 100);
+    bar.style.width = `${progress}%`;
+    statusText.textContent = `시뮬레이션 진행률: ${currentRun.toLocaleString()} / 10,000 회 분석 완료`;
+
+    if (currentRun < totalRuns) {
+      requestAnimationFrame(runNextChunk); // 브라우저가 프로그레스바를 다시 렌더링할 시간을 양보
+    } else {
+      setTimeout(() => {
+        overlay.classList.add("fade-out");
+        renderMonteCarloUI();
+      }, 600);
+    }
+  }
+
+  // 부드러운 로딩 연출을 위해 약간의 딜레이 후 시작
+  setTimeout(runNextChunk, 800);
+}
+
+// 몬테카를로 분석 결과 카드 UI 렌더링
+function renderMonteCarloUI() {
+  const container = document.getElementById("mc-results-container");
+  if (!container) return;
+
+  const total = mcStats.totalRuns;
+  const rounds = mcStats.korRounds;
+
+  const pGroupOut = (rounds.groupOut / total) * 100;
+  const pR32 = ((total - rounds.groupOut) / total) * 100;
+  const pR16 = ((rounds.r16 + rounds.qf + rounds.sf + rounds.final + rounds.champ) / total) * 100;
+  const pQF = ((rounds.qf + rounds.sf + rounds.final + rounds.champ) / total) * 100;
+  const pSF = ((rounds.sf + rounds.final + rounds.champ) / total) * 100;
+  const pFinal = ((rounds.final + rounds.champ) / total) * 100;
+  const pChamp = (rounds.champ / total) * 100;
+
+  const data = [
+    { label: "조별 리그 탈락률", pct: pGroupOut, color: "var(--color-loss)" },
+    { label: "32강 진출 성공률", pct: pR32, color: "var(--color-win)" },
+    { label: "16강 진출 확률", pct: pR16, color: "var(--accent-primary)" },
+    { label: "8강 진출 확률", pct: pQF, color: "var(--accent-secondary)" },
+    { label: "4강 진출 확률", pct: pSF, color: "#a855f7" },
+    { label: "결승 진출 확률", pct: pFinal, color: "#ec4899" },
+    { label: "우승 (🏆치어 업)", pct: pChamp, color: "var(--color-gold)" }
+  ];
+
+  container.innerHTML = data.map(item => `
+    <div class="mc-result-item">
+      <div class="mc-item-header">
+        <span class="mc-item-label">${item.label}</span>
+        <span class="mc-item-pct">${item.pct.toFixed(2)}%</span>
+      </div>
+      <div class="mc-bar-container">
+        <div class="mc-bar-fill" style="width: ${item.pct}%; background: ${item.color}; box-shadow: 0 0 6px ${item.color}80;"></div>
+      </div>
+    </div>
+  `).join("");
+
+  // 예상 32강 상대 리스트 렌더링
+  const oppContainer = document.getElementById("mc-opponent-container");
+  if (!oppContainer) return;
+
+  const sortedOpps = Object.entries(mcStats.r32Opponents)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+
+  if (sortedOpps.length > 0) {
+    const badges = sortedOpps.map(([code, count]) => {
+      const team = TEAMS[code];
+      const pct = (count / total) * 100;
+      return `
+        <div class="mc-opponent-badge">
+          <span>${team.flag}</span>
+          <span>${team.name}</span>
+          <span class="pct">${pct.toFixed(1)}%</span>
+        </div>
+      `;
+    }).join("");
+
+    oppContainer.innerHTML = `
+      <h4 class="mc-opponent-title">💡 가장 확률이 높은 32강 예상 맞대결 상대 (Top 4)</h4>
+      <div class="mc-opponent-list">${badges}</div>
+    `;
+  } else {
+    oppContainer.innerHTML = "";
+  }
+}
+
+// 몬테카를로 분석용 무부하 단일 월드컵 시뮬레이터 (로컬 변수로만 동작)
+function runSingleWorldCupSimulation() {
+  const standings = {};
+  Object.entries(GROUPS).forEach(([groupLetter, teamCodes]) => {
+    standings[groupLetter] = teamCodes.map(code => ({
+      code, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0
+    }));
+  });
+
+  // 12개 조 리그 시뮬레이션
+  Object.entries(GROUPS).forEach(([groupLetter, teamCodes]) => {
+    const groupStats = standings[groupLetter];
+    for (let i = 0; i < 6; i++) {
+      const scheme = GROUP_MATCH_SCHEME[i];
+      const homeIdx = scheme.homeIdx;
+      const awayIdx = scheme.awayIdx;
+      
+      const homeCode = teamCodes[homeIdx];
+      const awayCode = teamCodes[awayIdx];
+
+      const t1 = TEAMS[homeCode];
+      const t2 = TEAMS[awayCode];
+      const rating1 = 1200 / (t1.fifaRank + 4);
+      const rating2 = 1200 / (t2.fifaRank + 4);
+      let lambda1 = 1.35 * Math.sqrt(rating1 / rating2);
+      let lambda2 = 1.35 / Math.sqrt(rating1 / rating2);
+      if (t1.host) lambda1 *= 1.1;
+      if (t2.host) lambda2 *= 1.1;
+
+      const g1 = poissonRandom(lambda1);
+      const g2 = poissonRandom(lambda2);
+
+      const hStat = groupStats[homeIdx];
+      const aStat = groupStats[awayIdx];
+
+      hStat.p++;
+      aStat.p++;
+      hStat.gf += g1;
+      hStat.ga += g2;
+      aStat.gf += g2;
+      aStat.ga += g1;
+
+      if (g1 > g2) {
+        hStat.w++;
+        hStat.pts += 3;
+        aStat.l++;
+      } else if (g1 < g2) {
+        aStat.w++;
+        aStat.pts += 3;
+        hStat.l++;
+      } else {
+        hStat.d++;
+        hStat.pts += 1;
+        aStat.d++;
+        aStat.pts += 1;
+      }
+      hStat.gd = hStat.gf - hStat.ga;
+      aStat.gd = aStat.gf - aStat.ga;
+    }
+
+    // 그룹 순위 정렬
+    groupStats.sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      if (b.gf !== a.gf) return b.gf - a.gf;
+      return TEAMS[a.code].fifaRank - TEAMS[b.code].fifaRank;
+    });
+  });
+
+  // 3위 팀 순위 산출
+  const thirds = Object.entries(standings).map(([groupLetter, sorted]) => {
+    return { group: groupLetter, ...sorted[2] };
+  });
+  thirds.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    if (b.gf !== a.gf) return b.gf - a.gf;
+    return TEAMS[a.code].fifaRank - TEAMS[b.code].fifaRank;
+  });
+
+  // 대한민국 Group A 통과 판별
+  const groupA = standings['A'];
+  const korIdx = groupA.findIndex(t => t.code === 'KOR');
+  let survived = false;
+  let korStage = 'groupOut';
+
+  if (korIdx < 2) {
+    survived = true;
+    korStage = 'r32';
+  } else if (korIdx === 2) {
+    const inTop8Thirds = thirds.slice(0, 8).some(t => t.code === 'KOR');
+    if (inTop8Thirds) {
+      survived = true;
+      korStage = 'r32';
+    }
+  }
+
+  // 조별 예선에서 탈락 시 연산 단축을 위해 즉시 리턴
+  if (!survived) {
+    return { korStage: 'groupOut', korR32Opponent: null };
+  }
+
+  // 8개 와일드카드 3위 팀 대진 백트래킹 매칭
+  const qualifiedThirds = thirds.slice(0, 8);
+  const qualifiedGroups = qualifiedThirds.map(t => t.group).sort();
+  const assignments = matchThirdPlaceTeamsLocal(qualifiedGroups);
+
+  const firsts = {};
+  const seconds = {};
+  Object.entries(standings).forEach(([groupLetter, sorted]) => {
+    firsts[groupLetter] = sorted[0].code;
+    seconds[groupLetter] = sorted[1].code;
+  });
+
+  // 로컬 토너먼트 매치북 초기화
+  const localMatches = {};
+  for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
+    localMatches[matchId] = { homeCode: "", awayCode: "", winner: "" };
+  }
+
+  // 32강 매치 세팅
+  for (let matchId = R32_MIN; matchId <= R32_MAX; matchId++) {
+    const scheme = R32_FIXED_SCHEME[matchId];
+    let homeCode = "";
+    let awayCode = "";
+
+    if (scheme.home.startsWith("1")) {
+      homeCode = firsts[scheme.home.charAt(1)];
+    } else if (scheme.home.startsWith("2")) {
+      homeCode = seconds[scheme.home.charAt(1)];
+    }
+
+    if (scheme.away.startsWith("3rd")) {
+      const matchedGroup = assignments ? assignments[matchId] : null;
+      if (matchedGroup) {
+        const thirdTeamObj = thirds.find(t => t.group === matchedGroup);
+        awayCode = thirdTeamObj ? thirdTeamObj.code : "";
+      } else {
+        const fallbackIdx = matchId - R32_MIN;
+        if (fallbackIdx < qualifiedThirds.length) {
+          awayCode = qualifiedThirds[fallbackIdx].code;
+        }
+      }
+    } else if (scheme.away.startsWith("2")) {
+      awayCode = seconds[scheme.away.charAt(1)];
+    } else if (scheme.away.startsWith("1")) {
+      awayCode = firsts[scheme.away.charAt(1)];
+    }
+
+    localMatches[matchId].homeCode = homeCode;
+    localMatches[matchId].awayCode = awayCode;
+  }
+
+  // 본선 토너먼트 시뮬레이션 수행
+  for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
+    const m = localMatches[matchId];
+    
+    if (matchId >= R16_MIN) {
+      const pathway = TOURNAMENT_PATHWAYS[matchId];
+      if (pathway) {
+        const parent1 = localMatches[pathway.parent1];
+        const parent2 = localMatches[pathway.parent2];
+        if (pathway.isLosers) {
+          m.homeCode = parent1.winner ? (parent1.winner === parent1.homeCode ? parent1.awayCode : parent1.homeCode) : "";
+          m.awayCode = parent2.winner ? (parent2.winner === parent2.awayCode ? parent2.awayCode : parent2.homeCode) : "";
+        } else {
+          m.homeCode = parent1.winner || "";
+          m.awayCode = parent2.winner || "";
+        }
+      }
+    }
+
+    if (m.homeCode && m.awayCode) {
+      m.winner = simulateWinnerLocal(m.homeCode, m.awayCode);
+    }
+  }
+
+  // 대한민국의 대진 경로 추적
+  let koreaMatch = Object.keys(localMatches).find(id => id <= 88 && (localMatches[id].homeCode === 'KOR' || localMatches[id].awayCode === 'KOR'));
+  koreaMatch = parseInt(koreaMatch);
+  const opp = localMatches[koreaMatch].homeCode === 'KOR' ? localMatches[koreaMatch].awayCode : localMatches[koreaMatch].homeCode;
+
+  if (localMatches[koreaMatch].winner !== 'KOR') {
+    return { korStage: 'r32', korR32Opponent: opp };
+  }
+
+  // 16강 진출 여부 확인
+  let nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
+  nextMatchId = parseInt(nextMatchId);
+  if (localMatches[nextMatchId].winner !== 'KOR') {
+    return { korStage: 'r16', korR32Opponent: opp };
+  }
+
+  // 8강 진출 여부 확인
+  koreaMatch = nextMatchId;
+  nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
+  nextMatchId = parseInt(nextMatchId);
+  if (localMatches[nextMatchId].winner !== 'KOR') {
+    return { korStage: 'qf', korR32Opponent: opp };
+  }
+
+  // 4강 진출 여부 확인
+  koreaMatch = nextMatchId;
+  nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
+  nextMatchId = parseInt(nextMatchId);
+  if (localMatches[nextMatchId].winner !== 'KOR') {
+    return { korStage: 'sf', korR32Opponent: opp };
+  }
+
+  // 결승/우승 검사
+  if (localMatches[104].winner === 'KOR') {
+    return { korStage: 'champ', korR32Opponent: opp };
+  } else {
+    return { korStage: 'final', korR32Opponent: opp };
+  }
+}
+
+// 몬테카를로 내부용 경기 우승자 판별 (PK 판정 포함)
+function simulateWinnerLocal(code1, code2) {
+  const t1 = TEAMS[code1];
+  const t2 = TEAMS[code2];
+  const rating1 = 1200 / (t1.fifaRank + 4);
+  const rating2 = 1200 / (t2.fifaRank + 4);
+  let lambda1 = 1.35 * Math.sqrt(rating1 / rating2);
+  let lambda2 = 1.35 / Math.sqrt(rating1 / rating2);
+  if (t1.host) lambda1 *= 1.1;
+  if (t2.host) lambda2 *= 1.1;
+
+  const g1 = poissonRandom(lambda1);
+  const g2 = poissonRandom(lambda2);
+
+  if (g1 > g2) return code1;
+  if (g1 < g2) return code2;
+
+  // 승부차기 시뮬레이션 (랭킹이 높은 팀에게 52% 확률적 이점 부여)
+  const rankHome = t1.fifaRank;
+  const rankAway = t2.fifaRank;
+  const homeAdvantage = rankHome < rankAway ? 0.52 : 0.48;
+  return Math.random() < homeAdvantage ? code1 : code2;
+}
+
+// 몬테카를로 내부용 3위 매치 백트래킹 포뮬러
+function matchThirdPlaceTeamsLocal(qualifiedGroups) {
+  const slots = [
+    { id: 74, options: ['A', 'B', 'C', 'D', 'F'] },
+    { id: 77, options: ['C', 'D', 'F', 'G', 'H'] },
+    { id: 79, options: ['B', 'E', 'F', 'I', 'J'] },
+    { id: 80, options: ['A', 'E', 'H', 'I', 'J'] },
+    { id: 81, options: ['E', 'F', 'G', 'I', 'J'] },
+    { id: 84, options: ['D', 'E', 'I', 'J', 'L'] },
+    { id: 86, options: ['C', 'E', 'F', 'H', 'I'] },
+    { id: 88, options: ['E', 'H', 'I', 'J', 'K'] }
+  ];
+
+  const assignment = {};
+  const used = new Set();
+
+  function backtrack(slotIndex) {
+    if (slotIndex === slots.length) return true;
+    const slot = slots[slotIndex];
+    for (const group of qualifiedGroups) {
+      if (!used.has(group) && slot.options.includes(group)) {
+        assignment[slot.id] = group;
+        used.add(group);
+        if (backtrack(slotIndex + 1)) return true;
+        used.delete(group);
+        delete assignment[slot.id];
+      }
+    }
+    return false;
+  }
+
+  if (backtrack(0)) return assignment;
+  return null;
 }
