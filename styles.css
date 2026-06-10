@@ -1031,3 +1031,207 @@ body {
   from { transform: translateY(100px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* --- 13. 모바일 반응형 디자인 개선 (Mobile Responsiveness) --- */
+@media (max-width: 768px) {
+  /* 글로벌 컨테이너 여백 축소 */
+  .app-container {
+    padding: 0 10px;
+  }
+
+  /* 헤더 세로 스택형 배치 */
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    margin-top: 10px;
+    gap: 16px;
+  }
+  .logo-area {
+    justify-content: center;
+  }
+  .header-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+  }
+  .light-theme .header-stats {
+    background: rgba(0, 0, 0, 0.02);
+  }
+  .stat-mini {
+    align-items: center;
+  }
+  .mini-progress-bar {
+    width: 60px;
+  }
+  .global-actions {
+    justify-content: center;
+    width: 100%;
+  }
+  .global-actions .btn {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* 내비게이션 탭 가로 스크롤 가능하게 수정 */
+  .tab-navigation {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 8px;
+    gap: 4px;
+    scrollbar-width: none; /* 파이어폭스 */
+  }
+  .tab-navigation::-webkit-scrollbar {
+    display: none; /* 크롬/사파리 */
+  }
+  .tab-btn {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    flex: 0 0 auto;
+  }
+  .tab-btn.active::after {
+    bottom: -9px;
+  }
+
+  /* 대시보드 구조 및 카드 여백 */
+  .card {
+    padding: 16px;
+    border-radius: var(--radius-sm);
+  }
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .champion-card {
+    padding: 24px 16px;
+  }
+  .champion-trophy {
+    width: 90px;
+    height: 90px;
+  }
+  .trophy-emoji {
+    font-size: 4rem;
+  }
+  .champ-name {
+    font-size: 1.5rem;
+  }
+
+  /* 조별 리그 카드 그리드 배치 */
+  .groups-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .group-header h3 {
+    font-size: 1.1rem;
+  }
+  .standing-table {
+    font-size: 0.75rem;
+  }
+  .standing-table th, .standing-table td {
+    padding: 6px 2px;
+  }
+  .team-cell {
+    gap: 4px;
+  }
+  .flag-emoji {
+    font-size: 1rem;
+  }
+  .team-name {
+    max-width: 85px;
+  }
+  
+  .match-item {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+  .match-team {
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+  .match-team .team-name {
+    max-width: 80px;
+  }
+  .score-input {
+    width: 28px;
+    height: 24px;
+    font-size: 0.8rem;
+  }
+  .match-divider {
+    font-size: 0.7rem;
+  }
+
+  /* 토너먼트 대진표 세부 카드 축소 */
+  .bracket-container {
+    gap: 20px;
+    padding: 10px 5px;
+  }
+  .bracket-column {
+    min-width: 210px;
+  }
+  .col-title {
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+  }
+  .ko-match-card {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+  .ko-match-header {
+    font-size: 0.6rem;
+  }
+  .ko-team-info {
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+  .ko-team-info .team-name {
+    max-width: 100px;
+  }
+  .ko-score {
+    width: 26px;
+    height: 22px;
+    font-size: 0.75rem;
+  }
+  .pk-input {
+    width: 22px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
+  .finals-matches {
+    gap: 20px;
+  }
+
+  /* 모바일 토스트 알림창 하단 고정 */
+  .toast-msg {
+    bottom: 15px;
+    right: 15px;
+    left: 15px;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+  }
+}
+
+/* --- 14. 조 3위 테이블 반응형 특정 컬럼 숨김 --- */
+@media (max-width: 640px) {
+  .styled-table th:nth-child(4), /* P (경기수) */
+  .styled-table td:nth-child(4),
+  .styled-table th:nth-child(5), /* W (승) */
+  .styled-table td:nth-child(5),
+  .styled-table th:nth-child(6), /* D (무) */
+  .styled-table td:nth-child(6),
+  .styled-table th:nth-child(7), /* L (패) */
+  .styled-table td:nth-child(7),
+  .styled-table th:nth-child(9), /* GF (득점) */
+  .styled-table td:nth-child(9) {
+    display: none;
+  }
+  .styled-table th, .styled-table td {
+    padding: 8px 4px;
+    font-size: 0.75rem;
+  }
+}
