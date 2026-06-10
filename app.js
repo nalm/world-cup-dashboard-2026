@@ -437,14 +437,25 @@ function calculateGroupStageStandings() {
       }
     }
 
-    // 정렬 규칙: 승점 > 골득실 > 다득점 > 피파랭킹(낮을수록 우수)
-    const sorted = Object.values(stats).sort((a, b) => {
-      if (b.pts !== a.pts) return b.pts - a.pts;
-      if (b.gd !== a.gd) return b.gd - a.gd;
-      if (b.gf !== a.gf) return b.gf - a.gf;
-      // 피파랭킹 역비교 (1등이 가장 좋으므로 오름차순)
-      return TEAMS[a.teamCode].fifaRank - TEAMS[b.teamCode].fifaRank;
-    });
+    // 한 경기라도 치러졌는지 확인
+    const hasStarted = Object.values(stats).some(t => t.p > 0);
+    
+    let sorted;
+    if (hasStarted) {
+      // 정렬 규칙: 승점 > 골득실 > 다득점 > 피파랭킹(낮을수록 우수)
+      sorted = Object.values(stats).sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.gd !== a.gd) return b.gd - a.gd;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        // 피파랭킹 역비교 (1등이 가장 좋으므로 오름차순)
+        return TEAMS[a.teamCode].fifaRank - TEAMS[b.teamCode].fifaRank;
+      });
+    } else {
+      // 경기가 시작되지 않은 경우 GROUPS[groupLetter]의 기본 대진 추첨 순서(조 시드 순서) 유지
+      sorted = Object.values(stats).sort((a, b) => {
+        return GROUPS[groupLetter].indexOf(a.teamCode) - GROUPS[groupLetter].indexOf(b.teamCode);
+      });
+    }
 
     groupStandings[groupLetter] = sorted;
   });
@@ -832,7 +843,11 @@ function updateKoreaStatus() {
   const korStandings = groupA.find(t => t.teamCode === "KOR");
   const korIdx = groupA.findIndex(t => t.teamCode === "KOR");
 
-  if (playedMatches < 6) {
+  if (playedMatches === 0) {
+    el.textContent = "조별 예선 대기";
+    card.style.borderLeftColor = "var(--card-border)";
+    return;
+  } else if (playedMatches < 6) {
     el.textContent = `A조 ${korIdx + 1}위 (진행 중)`;
     card.style.borderLeftColor = "#ef4444";
     return;
@@ -940,20 +955,23 @@ function renderGroupTablesAndInputs() {
     tbody.innerHTML = "";
     const standings = groupStandings[groupLetter];
     const topThirds = thirdsStandings.slice(0, 8).map(t => t.teamCode);
+    const hasStarted = standings.some(t => t.p > 0);
 
     standings.forEach((row, idx) => {
       const team = TEAMS[row.teamCode];
       const tr = document.createElement("tr");
 
-      // 다이렉트 진출(1, 2위)
-      if (idx < 2) {
-        tr.className = "qualify-direct";
-      } else if (idx === 2) {
-        // 와일드카드 진출 조건 검증
-        if (isGroupStageComplete() && topThirds.includes(row.teamCode)) {
-          tr.className = "qualify-direct"; // 진출 완료된 3위팀
-        } else {
-          tr.className = "qualify-third"; // 진출 대기선
+      // 다이렉트 진출(1, 2위) 및 3위 와일드카드 진출 시각화 (경기가 진행된 조만 적용)
+      if (hasStarted) {
+        if (idx < 2) {
+          tr.className = "qualify-direct";
+        } else if (idx === 2) {
+          // 와일드카드 진출 조건 검증
+          if (isGroupStageComplete() && topThirds.includes(row.teamCode)) {
+            tr.className = "qualify-direct"; // 진출 완료된 3위팀
+          } else {
+            tr.className = "qualify-third"; // 진출 대기선
+          }
         }
       }
 
@@ -993,7 +1011,8 @@ function renderThirdsTable() {
 
   tbody.innerHTML = "";
 
-  if (thirdsStandings.length === 0) {
+  const hasStarted = thirdsStandings.some(t => t.p > 0);
+  if (thirdsStandings.length === 0 || !hasStarted) {
     tbody.innerHTML = `
       <tr>
         <td colspan="11" class="placeholder-text" style="padding: 30px;">
