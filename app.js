@@ -173,14 +173,24 @@ document.addEventListener("DOMContentLoaded", () => {
   bindEvents();
 });
 
-function initApp() {
+async function initApp() {
   resetData();
   renderGroupStageLayout();
   calculateAll();
   updateUI();
   
-  // 최초 진입 시에는 빈 상태(실제결과 연동 전)로 몬테카를로 즉시 실행
+  // 1. 실제 결과 동기화 호출
+  await syncActualResults();
+  
+  // 2. 동기화된 상태(실제결과만 고정)를 기반으로 몬테카를로 기동
   startMonteCarloSimulation();
+  
+  // 3. 나머지 미결정 경기에 대해 전체 시뮬레이션 실행
+  simulateGroupStage();
+  calculateAll();
+  simulateKnockoutStage();
+  calculateAll();
+  updateUI();
 }
 
 function resetData() {
@@ -278,16 +288,6 @@ function bindEvents() {
     startMonteCarloSimulation();
   });
 
-  // 실제 경기 결과 동기화 버튼
-  const btnSync = document.getElementById("btn-sync-results");
-  if (btnSync) {
-    btnSync.addEventListener("click", () => {
-      syncActualResults().then(() => {
-        // 동기화 완료 후 한국팀 확률 재연산 (체코전 승리가 반영된 새로운 확률 도출)
-        startMonteCarloSimulation();
-      });
-    });
-  }
 }
 
 // --- 조별 예선 카드 생성 및 렌더링 ---
