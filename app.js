@@ -179,25 +179,126 @@ async function initApp() {
   calculateAll();
   updateUI();
   
-  // 1. 실제 결과 동기화 호출
-  const syncCount = await syncActualResults();
-  console.log('[initApp] syncActualResults returned:', syncCount);
-  console.log('[initApp] actualMatches after sync:', JSON.stringify(actualMatches));
-  console.log('[initApp] G_A_0 score:', JSON.stringify(matchScores['G_A_0']));
-  console.log('[initApp] G_A_1 score:', JSON.stringify(matchScores['G_A_1']));
-  
-  // 2. 동기화된 상태(실제결과만 고정)를 기반으로 몬테카를로 기동
-  startMonteCarloSimulation();
-  
-  // 3. 나머지 미결정 경기에 대해 전체 시뮬레이션 실행
-  simulateGroupStage();
-  console.log('[initApp] After simulateGroupStage - G_A_0:', JSON.stringify(matchScores['G_A_0']), 'actual:', actualMatches['G_A_0']);
-  console.log('[initApp] After simulateGroupStage - G_A_1:', JSON.stringify(matchScores['G_A_1']), 'actual:', actualMatches['G_A_1']);
-  calculateAll();
-  simulateKnockoutStage();
-  calculateAll();
-  updateUI();
+  // 로딩 오버레이를 실제 결과 불러오기 화면으로 전환
+  const overlay = document.getElementById("loading-overlay");
+  const bar = document.getElementById("loader-progress-bar");
+  const statusText = document.getElementById("loader-status");
+  const loaderTitle = overlay.querySelector("h2");
+
+  overlay.classList.remove("fade-out");
+  overlay.style.display = "flex";
+  bar.style.width = "20%";
+  loaderTitle.textContent = "실제 경기 결과 불러오는 중...";
+  statusText.textContent = "API 서버에 연결 중입니다...";
+
+  // 실제 결과 가져오기 시도
+  const success = await attemptFetchActualResults(overlay, bar, statusText, loaderTitle);
+
+  if (success) {
+    // 성공: 시뮬레이션 진행 후 대시보드 표시
+    bar.style.width = "60%";
+    statusText.textContent = "시뮬레이션 실행 중...";
+
+    simulateGroupStage();
+    calculateAll();
+    simulateKnockoutStage();
+    calculateAll();
+    updateUI();
+
+    bar.style.width = "80%";
+    statusText.textContent = "몬테카를로 분석 시작...";
+    loaderTitle.textContent = "대한민국 기적의 우승 확률 계산 중...";
+
+    // 몬테카를로 시뮬레이션 시작 (완료 시 오버레이 자동 닫힘)
+    startMonteCarloSimulation();
+  }
+  // 실패 시: attemptFetchActualResults 내부에서 재시도 다이얼로그 처리
 }
+
+// 실제 결과 가져오기 (재시도 루프 포함)
+async function attemptFetchActualResults(overlay, bar, statusText, loaderTitle) {
+  while (true) {
+    bar.style.width = "20%";
+    loaderTitle.textContent = "실제 경기 결과 불러오는 중...";
+    statusText.textContent = "API 서버에 연결 중입니다...";
+
+    const result = await fetchActualGames();
+
+    if (result.success) {
+      // 성공: 실제 결과 적용
+      bar.style.width = "50%";
+      statusText.textContent = "실제 결과 적용 중...";
+      const updated = applyActualResults(result.games);
+      console.log(`[initApp] Applied ${updated} actual match results.`);
+      if (updated > 0) {
+        showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료!`);
+      } else {
+        showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
+      }
+      return true;
+    }
+
+    // 실패: 사용자에게 재시도/건너뛰기 선택지 제공
+    console.warn("[initApp] All fetch attempts failed:", result.error);
+    bar.style.width = "0%";
+    loaderTitle.textContent = "⚠️ 실제 결과를 불러올 수 없습니다";
+    statusText.innerHTML = ""; // 버튼을 넣기 위해 초기화
+
+    const userChoice = await showSyncRetryDialog(statusText);
+
+    if (userChoice === "retry") {
+      // 재시도: 데이터 초기화 후 루프 반복
+      resetData();
+      calculateAll();
+      updateUI();
+      continue;
+    } else {
+      // 건너뛰기: 실제 결과 없이 순수 시뮬레이션 모드
+      showToast("ℹ️ 실제 결과 없이 시뮬레이션 모드로 진행합니다.");
+
+      bar.style.width = "60%";
+      loaderTitle.textContent = "시뮬레이션 모드로 진행 중...";
+      statusText.textContent = "모든 경기를 시뮬레이션합니다...";
+
+      simulateGroupStage();
+      calculateAll();
+      simulateKnockoutStage();
+      calculateAll();
+      updateUI();
+
+      bar.style.width = "80%";
+      statusText.textContent = "몬테카를로 분석 시작...";
+      loaderTitle.textContent = "대한민국 기적의 우승 확률 계산 중...";
+      startMonteCarloSimulation();
+      return false;
+    }
+  }
+}
+
+// 재시도/건너뛰기 다이얼로그 (Promise로 사용자 입력 대기)
+function showSyncRetryDialog(container) {
+  return new Promise((resolve) => {
+    container.innerHTML = `
+      <div class="sync-retry-dialog">
+        <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 0.9rem;">
+          네트워크 상태나 API 서버 상태를 확인해 주세요.<br>
+          다시 시도하거나, 실제 결과 없이 시뮬레이션을 진행할 수 있습니다.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button id="btn-sync-retry" class="btn btn-primary" style="min-width: 140px; font-size: 0.95rem;">
+            🔄 다시 시도
+          </button>
+          <button id="btn-sync-skip" class="btn btn-secondary" style="min-width: 140px; font-size: 0.95rem;">
+            ⚡ 시뮬레이션 진행
+          </button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btn-sync-retry").addEventListener("click", () => resolve("retry"));
+    document.getElementById("btn-sync-skip").addEventListener("click", () => resolve("skip"));
+  });
+}
+
 
 function resetData() {
   matchScores = {};
@@ -1889,53 +1990,41 @@ async function fetchWithTimeout(resource, options = {}) {
   }
 }
 
-// 실제 월드컵 API 결과 동기화
-async function syncActualResults() {
-  showToast("🔄 실제 경기 결과 동기화 중...");
-  
-  // 시뮬레이션 데이터를 리셋하고 실제 데이터만 입력하기 위해 데이터 초기화 호출
-  resetData();
-  calculateAll();
-  updateUI();
-  
-  // 1단계: 자체 Vercel 서버리스 프록시 API 호출 시도 (타임아웃 3초)
+// 실제 월드컵 API 결과를 가져오는 순수 데이터 페치 함수
+// 성공 시 { success: true, games: [...] } 반환
+// 실패 시 { success: false, error: "..." } 반환
+async function fetchActualGames() {
+  // 1단계: 자체 Vercel 서버리스 프록시 API 호출 시도
   try {
+    console.log('[fetchActualGames] Trying Vercel proxy /api/games ...');
     const res = await fetchWithTimeout('/api/games', { timeout: 10000 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.games) {
-      const updated = applyActualResults(data.games);
-      if (updated > 0) {
-        showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료!`);
-      } else {
-        showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
-      }
-      return updated;
+      console.log(`[fetchActualGames] Vercel proxy success: ${data.games.length} games`);
+      return { success: true, games: data.games };
     }
     throw new Error("Invalid API response format");
   } catch (proxyErr) {
-    console.warn("Vercel proxy fetch failed, attempting direct fetch...", proxyErr);
+    console.warn("[fetchActualGames] Vercel proxy failed:", proxyErr.message);
     
-    // 2단계: API 직접 호출 시도 (타임아웃 3초, 로컬 테스트 환경 대비용)
+    // 2단계: API 직접 호출 시도
     try {
+      console.log('[fetchActualGames] Trying direct API ...');
       const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data && data.games) {
-        const updated = applyActualResults(data.games);
-        if (updated > 0) {
-          showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (직접 연결)`);
-        } else {
-          showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
-        }
-        return updated;
+        console.log(`[fetchActualGames] Direct API success: ${data.games.length} games`);
+        return { success: true, games: data.games };
       }
       throw new Error("Invalid API response format");
     } catch (directErr) {
-      console.warn("Direct API fetch failed, attempting public proxy...", directErr);
+      console.warn("[fetchActualGames] Direct API failed:", directErr.message);
       
-      // 3단계: AllOrigins CORS 프록시 활용 우회 시도 (타임아웃 3초, 비상용)
+      // 3단계: AllOrigins CORS 프록시 우회 시도
       try {
+        console.log('[fetchActualGames] Trying AllOrigins proxy ...');
         const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
         const res = await fetchWithTimeout(proxyUrl, { timeout: 10000 });
         if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
@@ -1943,20 +2032,14 @@ async function syncActualResults() {
         if (data && data.contents) {
           const parsed = JSON.parse(data.contents);
           if (parsed && parsed.games) {
-            const updated = applyActualResults(parsed.games);
-            if (updated > 0) {
-              showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (CORS 프록시)`);
-            } else {
-              showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
-            }
-            return updated;
+            console.log(`[fetchActualGames] AllOrigins proxy success: ${parsed.games.length} games`);
+            return { success: true, games: parsed.games };
           }
         }
         throw new Error("Invalid proxy wrapper response");
       } catch (err) {
-        console.error("All sync attempts failed", err);
-        showToast("❌ 실제 경기 결과 동기화에 실패했습니다. (네트워크 상태나 API 제공처 상태를 확인하세요)");
-        return 0;
+        console.error("[fetchActualGames] All attempts failed:", err.message);
+        return { success: false, error: err.message };
       }
     }
   }

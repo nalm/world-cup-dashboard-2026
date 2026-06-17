@@ -1317,12 +1317,43 @@ body {
   background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
   box-shadow: 0 0 10px var(--accent-glow);
   width: 0%;
-  transition: width 0.1s linear;
+  transition: width 0.4s ease;
 }
 .loader-status-text {
   font-size: 0.8rem;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* 동기화 실패 시 재시도/건너뛰기 다이얼로그 */
+.sync-retry-dialog {
+  margin-top: 8px;
+  animation: fadeIn 0.4s ease;
+}
+.sync-retry-dialog .btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+.sync-retry-dialog .btn-primary {
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+  color: #000;
+}
+.sync-retry-dialog .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+.sync-retry-dialog .btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+}
+.sync-retry-dialog .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
 }
 
 /* --- 16. 몬테카를로 분석 카드 스타일 --- */
