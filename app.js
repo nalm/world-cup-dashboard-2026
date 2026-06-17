@@ -254,6 +254,7 @@ function bindEvents() {
     simulateKnockoutStage();
     calculateAll();
     updateUI();
+    startMonteCarloSimulation(); // 몬테카를로 재시작
     showToast("⚡ 전경기 시뮬레이션 완료! 대진표와 챔피언이 결정되었습니다.");
   });
 
@@ -735,8 +736,8 @@ function simulateGroup(groupLetter) {
   const teamCodes = GROUPS[groupLetter];
   for (let i = 0; i < 6; i++) {
     const matchId = `G_${groupLetter}_${i}`;
-    // 실제 결과 또는 수동 입력으로 고정된 매치는 시뮬레이션에서 건너뜀
-    if (lockedMatches[matchId]) {
+    // 실제 경기 결과(API 동기화)만 시뮬레이션에서 건너뜀
+    if (actualMatches[matchId]) {
       continue;
     }
     
@@ -771,8 +772,8 @@ function simulateKnockoutStage() {
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const match = tournamentMatches[matchId];
     if (match.homeCode && match.awayCode) {
-      // 실제 결과 또는 수동 입력으로 고정된 매치는 보존
-      if (lockedMatches[matchId]) {
+      // 실제 경기 결과(API 동기화)만 보존
+      if (actualMatches[matchId]) {
         continue;
       }
       
@@ -1311,9 +1312,9 @@ function simulateSingleKnockout(matchId) {
     return;
   }
 
-  // 고정된 경기는 시뮬레이션 불가 처리
-  if (lockedMatches[matchId]) {
-    showToast("⚠️ 이미 완료된 실제 경기이거나 수동 고정된 경기입니다. 결과를 변경할 수 없습니다.");
+  // 실제 완료된 경기는 시뮬레이션 불가 처리
+  if (actualMatches[matchId]) {
+    showToast("⚠️ 이미 종료된 실제 경기입니다. 결과를 변경할 수 없습니다.");
     return;
   }
 
@@ -1562,8 +1563,8 @@ function runSingleWorldCupSimulation() {
       const awayCode = teamCodes[awayIdx];
 
       let g1, g2;
-      // 글로벌 matchScores에 실제/수동 경기 결과(locked)가 등록되어 있는지 체크
-      if (lockedMatches[matchId]) {
+      // 글로벌 matchScores에 실제 경기 결과(actual)가 등록되어 있는지 체크
+      if (actualMatches[matchId]) {
         const globalScore = matchScores[matchId];
         g1 = globalScore.homeScore;
         g2 = globalScore.awayScore;
@@ -1722,8 +1723,8 @@ function runSingleWorldCupSimulation() {
     }
 
     if (m.homeCode && m.awayCode) {
-      // 글로벌 tournamentMatches에 고정된 결과(locked)가 존재하고 매치업 국가가 동일하다면 그대로 사용
-      if (lockedMatches[matchId]) {
+      // 글로벌 tournamentMatches에 실제 결과(actual)가 존재하고 매치업 국가가 동일하다면 그대로 사용
+      if (actualMatches[matchId]) {
         const globalKO = tournamentMatches[matchId];
         if (globalKO && globalKO.homeCode === m.homeCode && globalKO.awayCode === m.awayCode) {
           m.winner = globalKO.winner;
