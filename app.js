@@ -1963,10 +1963,10 @@ const ENGLISH_NAME_TO_CODE = {
   "Germany": "GER", "Ecuador": "ECU", "Ivory Coast": "CIV", "Cote d'Ivoire": "CIV", "Curaçao": "CUW", "Curacao": "CUW",
   "Netherlands": "NED", "Japan": "JPN", "Sweden": "SWE", "Tunisia": "TUN",
   "Belgium": "BEL", "Egypt": "EGY", "Iran": "IRN", "New Zealand": "NZL",
-  "Spain": "ESP", "Uruguay": "URU", "Saudi Arabia": "KSA", "Cape Verde": "CPV", "Cabo Verde": "CPV",
+  "Spain": "ESP", "Uruguay": "URU", "Saudi Arabia": "KSA", "Cape Verde": "CPV", "Cabo Verde": "CPV", "Cape Verde Islands": "CPV",
   "France": "FRA", "Senegal": "SEN", "Iraq": "IRQ", "Norway": "NOR",
   "Argentina": "ARG", "Algeria": "ALG", "Austria": "AUT", "Jordan": "JOR",
-  "Portugal": "POR", "DR Congo": "COD", "Uzbekistan": "UZB", "Colombia": "COL",
+  "Portugal": "POR", "DR Congo": "COD", "Congo DR": "COD", "Uzbekistan": "UZB", "Colombia": "COL",
   "England": "ENG", "Croatia": "CRO", "Ghana": "GHA", "Panama": "PAN"
 };
 
@@ -1994,52 +1994,74 @@ async function fetchWithTimeout(resource, options = {}) {
 // 성공 시 { success: true, games: [...] } 반환
 // 실패 시 { success: false, error: "..." } 반환
 async function fetchActualGames() {
-  // 1단계: 자체 Vercel 서버리스 프록시 API 호출 시도
+  // ──────────────────────────────────────────────
+  // 1순위: football-data.org (빠르고 안정적, CORS 지원)
+  // ──────────────────────────────────────────────
   try {
-    console.log('[fetchActualGames] Trying Vercel proxy /api/games ...');
-    const res = await fetchWithTimeout('/api/games', { timeout: 10000 });
+    console.log('[fetchActualGames] 1순위: football-data.org ...');
+    const res = await fetchWithTimeout(
+      'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED',
+      {
+        timeout: 8000,
+        headers: { 'X-Auth-Token': '4aa5a4b8290d4feeac6d972f01282670' }
+      }
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (data && data.games) {
-      console.log(`[fetchActualGames] Vercel proxy success: ${data.games.length} games`);
-      return { success: true, games: data.games };
+    if (data && data.matches) {
+      // football-data.org 응답 → 내부 표준 형식으로 변환
+      const games = data.matches.map(m => ({
+        home_team_name_en: m.homeTeam.name,
+        away_team_name_en: m.awayTeam.name,
+        home_score: m.score.fullTime.home,
+        away_score: m.score.fullTime.away,
+        finished: "TRUE",
+        type: m.stage === "GROUP_STAGE" ? "group" : "knockout",
+        group: m.group ? m.group.replace("GROUP_", "") : null,
+        // 승부차기 정보 (penalties 필드가 존재할 경우)
+        home_pk: m.score.penalties ? m.score.penalties.home : null,
+        away_pk: m.score.penalties ? m.score.penalties.away : null,
+        id: m.id
+      }));
+      console.log(`[fetchActualGames] football-data.org 성공: ${games.length}경기 (${Date.now()})`);
+      return { success: true, games };
     }
-    throw new Error("Invalid API response format");
-  } catch (proxyErr) {
-    console.warn("[fetchActualGames] Vercel proxy failed:", proxyErr.message);
-    
-    // 2단계: API 직접 호출 시도
+    throw new Error("Invalid football-data.org response");
+  } catch (err1) {
+    console.warn("[fetchActualGames] football-data.org 실패:", err1.message);
+
+    // ──────────────────────────────────────────────
+    // 2순위: worldcup26.ir (Vercel 프록시 경유)
+    // ──────────────────────────────────────────────
     try {
-      console.log('[fetchActualGames] Trying direct API ...');
-      const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 10000 });
+      console.log('[fetchActualGames] 2순위: Vercel proxy → worldcup26.ir ...');
+      const res = await fetchWithTimeout('/api/games', { timeout: 15000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data && data.games) {
-        console.log(`[fetchActualGames] Direct API success: ${data.games.length} games`);
+        console.log(`[fetchActualGames] Vercel proxy 성공: ${data.games.length}경기`);
         return { success: true, games: data.games };
       }
-      throw new Error("Invalid API response format");
-    } catch (directErr) {
-      console.warn("[fetchActualGames] Direct API failed:", directErr.message);
-      
-      // 3단계: AllOrigins CORS 프록시 우회 시도
+      throw new Error("Invalid Vercel proxy response");
+    } catch (err2) {
+      console.warn("[fetchActualGames] Vercel proxy 실패:", err2.message);
+
+      // ──────────────────────────────────────────────
+      // 3순위: worldcup26.ir (직접 호출, CORS 이슈 가능)
+      // ──────────────────────────────────────────────
       try {
-        console.log('[fetchActualGames] Trying AllOrigins proxy ...');
-        const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
-        const res = await fetchWithTimeout(proxyUrl, { timeout: 10000 });
-        if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+        console.log('[fetchActualGames] 3순위: worldcup26.ir 직접 호출 ...');
+        const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 15000 });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (data && data.contents) {
-          const parsed = JSON.parse(data.contents);
-          if (parsed && parsed.games) {
-            console.log(`[fetchActualGames] AllOrigins proxy success: ${parsed.games.length} games`);
-            return { success: true, games: parsed.games };
-          }
+        if (data && data.games) {
+          console.log(`[fetchActualGames] worldcup26.ir 직접 성공: ${data.games.length}경기`);
+          return { success: true, games: data.games };
         }
-        throw new Error("Invalid proxy wrapper response");
-      } catch (err) {
-        console.error("[fetchActualGames] All attempts failed:", err.message);
-        return { success: false, error: err.message };
+        throw new Error("Invalid direct API response");
+      } catch (err3) {
+        console.error("[fetchActualGames] 모든 API 시도 실패:", err3.message);
+        return { success: false, error: `football-data.org: ${err1.message}, proxy: ${err2.message}, direct: ${err3.message}` };
       }
     }
   }
