@@ -745,6 +745,26 @@ body {
   -moz-appearance: textfield;
 }
 
+/* 실제 종료된 경기 결과 표시용 스타일 (직관적 구분용 골드/앰버 색상) */
+.match-item.actual-match .score-input,
+.ko-match-card.actual-match .score-input,
+.ko-match-card.actual-match .pk-input {
+  color: #fbbf24; /* Amber/Gold color */
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.05);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.light-theme .match-item.actual-match .score-input,
+.light-theme .ko-match-card.actual-match .score-input,
+.light-theme .ko-match-card.actual-match .pk-input {
+  color: #d97706; /* Darker amber for light theme */
+  text-shadow: none;
+  background: rgba(217, 119, 6, 0.05);
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
 .match-divider {
   font-size: 0.75rem;
   color: var(--text-muted);

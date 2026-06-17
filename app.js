@@ -180,13 +180,19 @@ async function initApp() {
   updateUI();
   
   // 1. 실제 결과 동기화 호출
-  await syncActualResults();
+  const syncCount = await syncActualResults();
+  console.log('[initApp] syncActualResults returned:', syncCount);
+  console.log('[initApp] actualMatches after sync:', JSON.stringify(actualMatches));
+  console.log('[initApp] G_A_0 score:', JSON.stringify(matchScores['G_A_0']));
+  console.log('[initApp] G_A_1 score:', JSON.stringify(matchScores['G_A_1']));
   
   // 2. 동기화된 상태(실제결과만 고정)를 기반으로 몬테카를로 기동
   startMonteCarloSimulation();
   
   // 3. 나머지 미결정 경기에 대해 전체 시뮬레이션 실행
   simulateGroupStage();
+  console.log('[initApp] After simulateGroupStage - G_A_0:', JSON.stringify(matchScores['G_A_0']), 'actual:', actualMatches['G_A_0']);
+  console.log('[initApp] After simulateGroupStage - G_A_1:', JSON.stringify(matchScores['G_A_1']), 'actual:', actualMatches['G_A_1']);
   calculateAll();
   simulateKnockoutStage();
   calculateAll();
@@ -1055,13 +1061,15 @@ function renderGroupTablesAndInputs() {
         homeInput.value = score.homeScore !== null ? score.homeScore : "";
         awayInput.value = score.awayScore !== null ? score.awayScore : "";
         
-        // 실제 결과로 고정된(actual) 경우에만 입력창 잠금
+        // 실제 결과로 고정된(actual) 경우에만 입력창 잠금 및 시각적 구분
         if (actualMatches[matchId]) {
           homeInput.setAttribute("disabled", "true");
           awayInput.setAttribute("disabled", "true");
+          homeInput.closest('.match-item').classList.add('actual-match');
         } else {
           homeInput.removeAttribute("disabled");
           awayInput.removeAttribute("disabled");
+          homeInput.closest('.match-item').classList.remove('actual-match');
         }
       }
     }
@@ -1194,6 +1202,12 @@ function buildMatchCardElement(matchId, roundKey) {
   const isFinished = actualMatches[matchId] === true;
   const isHomeDisabled = !homeTeam || !awayTeam || isFinished;
   const isAwayDisabled = !homeTeam || !awayTeam || isFinished;
+
+  if (isFinished) {
+    card.classList.add('actual-match');
+  } else {
+    card.classList.remove('actual-match');
+  }
 
   card.innerHTML = `
     <div class="ko-match-header">
@@ -1886,7 +1900,7 @@ async function syncActualResults() {
   
   // 1단계: 자체 Vercel 서버리스 프록시 API 호출 시도 (타임아웃 3초)
   try {
-    const res = await fetchWithTimeout('/api/games', { timeout: 3000 });
+    const res = await fetchWithTimeout('/api/games', { timeout: 10000 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.games) {
@@ -1904,7 +1918,7 @@ async function syncActualResults() {
     
     // 2단계: API 직접 호출 시도 (타임아웃 3초, 로컬 테스트 환경 대비용)
     try {
-      const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 3000 });
+      const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 10000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data && data.games) {
@@ -1923,7 +1937,7 @@ async function syncActualResults() {
       // 3단계: AllOrigins CORS 프록시 활용 우회 시도 (타임아웃 3초, 비상용)
       try {
         const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
-        const res = await fetchWithTimeout(proxyUrl, { timeout: 3000 });
+        const res = await fetchWithTimeout(proxyUrl, { timeout: 10000 });
         if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
         const data = await res.json();
         if (data && data.contents) {
@@ -1991,6 +2005,7 @@ function applyActualResults(apiGames) {
               matchScores[matchId] = nextScore;
               lockedMatches[matchId] = true; // 실제 결과 고정(Lock)
               actualMatches[matchId] = true; // 실제 결과 표시(UI 비활성화용)
+              console.log(`[applyActualResults] Group ${groupLetter} match ${matchId}: ${homeCode} ${nextScore.homeScore}-${nextScore.awayScore} ${awayCode} → LOCKED`);
               updatedCount++;
             }
             break;
