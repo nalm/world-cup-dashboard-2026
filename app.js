@@ -1883,9 +1883,9 @@ async function syncActualResults() {
   calculateAll();
   updateUI();
   
+  // 1단계: 자체 Vercel 서버리스 프록시 API 호출 시도 (타임아웃 3초)
   try {
-    // 1단계: API 직접 호출 시도 (타임아웃 3초)
-    const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 3000 });
+    const res = await fetchWithTimeout('/api/games', { timeout: 3000 });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.games) {
@@ -1898,31 +1898,51 @@ async function syncActualResults() {
       return updated;
     }
     throw new Error("Invalid API response format");
-  } catch (err) {
-    console.warn("Direct API fetch failed, attempting proxy...", err);
+  } catch (proxyErr) {
+    console.warn("Vercel proxy fetch failed, attempting direct fetch...", proxyErr);
+    
+    // 2단계: API 직접 호출 시도 (타임아웃 3초, 로컬 테스트 환경 대비용)
     try {
-      // 2단계: AllOrigins CORS 프록시 활용 우회 시도 (타임아웃 3초)
-      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
-      const res = await fetchWithTimeout(proxyUrl, { timeout: 3000 });
-      if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+      const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 3000 });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data && data.contents) {
-        const parsed = JSON.parse(data.contents);
-        if (parsed && parsed.games) {
-          const updated = applyActualResults(parsed.games);
-          if (updated > 0) {
-            showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (프록시)`);
-          } else {
-            showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
-          }
-          return updated;
+      if (data && data.games) {
+        const updated = applyActualResults(data.games);
+        if (updated > 0) {
+          showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (직접 연결)`);
+        } else {
+          showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
         }
+        return updated;
       }
-      throw new Error("Invalid proxy wrapper response");
-    } catch (proxyErr) {
-      console.error("All sync attempts failed", proxyErr);
-      showToast("❌ 실제 경기 결과 동기화에 실패했습니다. (네트워크 상태나 API 제공처 상태를 확인하세요)");
-      return 0;
+      throw new Error("Invalid API response format");
+    } catch (directErr) {
+      console.warn("Direct API fetch failed, attempting public proxy...", directErr);
+      
+      // 3단계: AllOrigins CORS 프록시 활용 우회 시도 (타임아웃 3초, 비상용)
+      try {
+        const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://worldcup26.ir/get/games');
+        const res = await fetchWithTimeout(proxyUrl, { timeout: 3000 });
+        if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+        const data = await res.json();
+        if (data && data.contents) {
+          const parsed = JSON.parse(data.contents);
+          if (parsed && parsed.games) {
+            const updated = applyActualResults(parsed.games);
+            if (updated > 0) {
+              showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료! (CORS 프록시)`);
+            } else {
+              showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
+            }
+            return updated;
+          }
+        }
+        throw new Error("Invalid proxy wrapper response");
+      } catch (err) {
+        console.error("All sync attempts failed", err);
+        showToast("❌ 실제 경기 결과 동기화에 실패했습니다. (네트워크 상태나 API 제공처 상태를 확인하세요)");
+        return 0;
+      }
     }
   }
 }
