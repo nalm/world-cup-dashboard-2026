@@ -1713,7 +1713,7 @@ function runSingleWorldCupSimulation() {
         const parent2 = localMatches[pathway.parent2];
         if (pathway.isLosers) {
           m.homeCode = parent1.winner ? (parent1.winner === parent1.homeCode ? parent1.awayCode : parent1.homeCode) : "";
-          m.awayCode = parent2.winner ? (parent2.winner === parent2.awayCode ? parent2.awayCode : parent2.homeCode) : "";
+          m.awayCode = parent2.winner ? (parent2.winner === parent2.homeCode ? parent2.awayCode : parent2.homeCode) : "";
         } else {
           m.homeCode = parent1.winner || "";
           m.awayCode = parent2.winner || "";
