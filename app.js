@@ -2012,57 +2012,24 @@ async function fetchActualGames() {
     console.warn("[fetchActualGames] Vercel proxy 실패:", err1.message);
 
     // ──────────────────────────────────────────────
-    // 2순위: football-data.org 직접 호출
-    //   프록시가 없는 로컬 환경(localhost)에서 동작. 배포 도메인에서는 CORS로 차단될 수 있음.
+    // 2순위: worldcup26.ir (직접 호출, CORS 이슈 가능)
+    //   토큰이 필요 없는 공개 API. 프록시 실패 시 폴백.
+    //   (football-data.org는 토큰이 필요하므로 프론트엔드에서 직접 호출하지 않고
+    //    /api/games 프록시를 통해서만 접근한다 — 토큰 노출 방지)
     // ──────────────────────────────────────────────
     try {
-      console.log('[fetchActualGames] 2순위: football-data.org 직접 호출 ...');
-      const res = await fetchWithTimeout(
-        'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED',
-        {
-          timeout: 8000,
-          headers: { 'X-Auth-Token': '4aa5a4b8290d4feeac6d972f01282670' }
-        }
-      );
+      console.log('[fetchActualGames] 2순위: worldcup26.ir 직접 호출 ...');
+      const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 15000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data && data.matches) {
-        const games = data.matches.map(m => ({
-          home_team_name_en: m.homeTeam.name,
-          away_team_name_en: m.awayTeam.name,
-          home_score: m.score.fullTime.home,
-          away_score: m.score.fullTime.away,
-          finished: "TRUE",
-          type: m.stage === "GROUP_STAGE" ? "group" : "knockout",
-          group: m.group ? m.group.replace("GROUP_", "") : null,
-          home_pk: m.score.penalties ? m.score.penalties.home : null,
-          away_pk: m.score.penalties ? m.score.penalties.away : null,
-          id: m.id
-        }));
-        console.log(`[fetchActualGames] football-data.org 직접 성공: ${games.length}경기`);
-        return { success: true, games };
+      if (data && data.games) {
+        console.log(`[fetchActualGames] worldcup26.ir 직접 성공: ${data.games.length}경기`);
+        return { success: true, games: data.games };
       }
-      throw new Error("Invalid football-data.org response");
+      throw new Error("Invalid direct API response");
     } catch (err2) {
-      console.warn("[fetchActualGames] football-data.org 직접 실패:", err2.message);
-
-      // ──────────────────────────────────────────────
-      // 3순위: worldcup26.ir (직접 호출, CORS 이슈 가능)
-      // ──────────────────────────────────────────────
-      try {
-        console.log('[fetchActualGames] 3순위: worldcup26.ir 직접 호출 ...');
-        const res = await fetchWithTimeout('https://worldcup26.ir/get/games', { timeout: 15000 });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data && data.games) {
-          console.log(`[fetchActualGames] worldcup26.ir 직접 성공: ${data.games.length}경기`);
-          return { success: true, games: data.games };
-        }
-        throw new Error("Invalid direct API response");
-      } catch (err3) {
-        console.error("[fetchActualGames] 모든 API 시도 실패:", err3.message);
-        return { success: false, error: `proxy: ${err1.message}, football-data: ${err2.message}, worldcup26: ${err3.message}` };
-      }
+      console.error("[fetchActualGames] 모든 API 시도 실패:", err2.message);
+      return { success: false, error: `proxy: ${err1.message}, worldcup26: ${err2.message}` };
     }
   }
 }

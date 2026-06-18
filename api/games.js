@@ -6,8 +6,9 @@
 // 응답 형식: { games: [{ home_team_name_en, away_team_name_en, home_score, away_score,
 //                        finished, type, group, home_pk, away_pk, id }] }
 
-const FOOTBALL_DATA_TOKEN =
-  process.env.FOOTBALL_DATA_TOKEN || "4aa5a4b8290d4feeac6d972f01282670";
+// 토큰은 Vercel 환경변수(FOOTBALL_DATA_TOKEN)에서만 읽는다.
+// 미설정 시 football-data.org 호출은 실패하고 worldcup26.ir 폴백으로 넘어간다.
+const FOOTBALL_DATA_TOKEN = process.env.FOOTBALL_DATA_TOKEN;
 
 async function fetchWithTimeout(resource, options = {}) {
   const { timeout = 8000, ...rest } = options;
