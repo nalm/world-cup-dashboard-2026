@@ -192,27 +192,16 @@ async function initApp() {
   statusText.textContent = "API 서버에 연결 중입니다...";
 
   // 실제 결과 가져오기 시도
-  const success = await attemptFetchActualResults(overlay, bar, statusText, loaderTitle);
+  await attemptFetchActualResults(overlay, bar, statusText, loaderTitle);
 
-  if (success) {
-    // 성공: 시뮬레이션 진행 후 대시보드 표시
-    bar.style.width = "60%";
-    statusText.textContent = "시뮬레이션 실행 중...";
+  // 로딩 오버레이 즉시 해제 (성공/실패 여부 관계없이 대시보드 먼저 표출)
+  overlay.classList.add("fade-out");
+  setTimeout(() => {
+    overlay.style.display = "none";
+  }, 500);
 
-    simulateGroupStage();
-    calculateAll();
-    simulateKnockoutStage();
-    calculateAll();
-    updateUI();
-
-    bar.style.width = "80%";
-    statusText.textContent = "몬테카를로 분석 시작...";
-    loaderTitle.textContent = "대한민국 기적의 우승 확률 계산 중...";
-
-    // 몬테카를로 시뮬레이션 시작 (완료 시 오버레이 자동 닫힘)
-    startMonteCarloSimulation();
-  }
-  // 실패 시: attemptFetchActualResults 내부에서 재시도 다이얼로그 처리
+  // 몬테카를로 시뮬레이션 백그라운드 구동 시작
+  startMonteCarloSimulation();
 }
 
 // 실제 결과 가져오기 (재시도 루프 포함)
@@ -235,6 +224,13 @@ async function attemptFetchActualResults(overlay, bar, statusText, loaderTitle) 
       } else {
         showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
       }
+
+      // 시뮬레이션 실행 후 대시보드 업데이트
+      simulateGroupStage();
+      calculateAll();
+      simulateKnockoutStage();
+      calculateAll();
+      updateUI();
       return true;
     }
 
@@ -256,20 +252,11 @@ async function attemptFetchActualResults(overlay, bar, statusText, loaderTitle) 
       // 건너뛰기: 실제 결과 없이 순수 시뮬레이션 모드
       showToast("ℹ️ 실제 결과 없이 시뮬레이션 모드로 진행합니다.");
 
-      bar.style.width = "60%";
-      loaderTitle.textContent = "시뮬레이션 모드로 진행 중...";
-      statusText.textContent = "모든 경기를 시뮬레이션합니다...";
-
       simulateGroupStage();
       calculateAll();
       simulateKnockoutStage();
       calculateAll();
       updateUI();
-
-      bar.style.width = "80%";
-      statusText.textContent = "몬테카를로 분석 시작...";
-      loaderTitle.textContent = "대한민국 기적의 우승 확률 계산 중...";
-      startMonteCarloSimulation();
       return false;
     }
   }
@@ -1537,15 +1524,23 @@ let mcStats = {
 
 // 몬테카를로 시뮬레이션 비동기 실행 및 프로그레스바 렌더링
 function startMonteCarloSimulation() {
-  const overlay = document.getElementById("loading-overlay");
-  const bar = document.getElementById("loader-progress-bar");
-  const statusText = document.getElementById("loader-status");
-
-  // 로딩 오버레이 노출 및 리셋
-  overlay.classList.remove("fade-out");
-  overlay.style.display = "flex";
-  bar.style.width = "0%";
-  statusText.textContent = "시뮬레이션 분석 준비 중...";
+  const container = document.getElementById("mc-results-container");
+  const oppContainer = document.getElementById("mc-opponent-container");
+  
+  if (container) {
+    container.innerHTML = `
+      <div class="mc-loader-wrapper" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; width: 100%;">
+        <div class="mc-loader-spinner"></div>
+        <div style="font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; color: var(--text-primary);" id="mc-loader-text">대한민국 기적의 우승 확률 계산 중... (0%)</div>
+        <div style="width: 100%; max-width: 300px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+          <div id="mc-loader-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary)); transition: width 0.1s ease;"></div>
+        </div>
+      </div>
+    `;
+  }
+  if (oppContainer) {
+    oppContainer.innerHTML = "";
+  }
 
   mcStats = {
     totalRuns: 0,
@@ -1554,7 +1549,7 @@ function startMonteCarloSimulation() {
   };
 
   const totalRuns = 10000;
-  const chunkSize = 1000; // 프레임 드랍을 막기 위한 청크 분할 시뮬레이션
+  const chunkSize = 500; // 백그라운드 구동을 위한 메인 스레드 친화적 청크 크기 최적화
   let currentRun = 0;
 
   function runNextChunk() {
@@ -1571,21 +1566,26 @@ function startMonteCarloSimulation() {
     currentRun = endRun;
     mcStats.totalRuns = currentRun;
     const progress = Math.round((currentRun / totalRuns) * 100);
-    bar.style.width = `${progress}%`;
-    statusText.textContent = `시뮬레이션 진행률: ${currentRun.toLocaleString()} / 10,000 회 분석 완료`;
+    
+    const loaderText = document.getElementById("mc-loader-text");
+    const loaderProgress = document.getElementById("mc-loader-progress");
+    
+    if (loaderText) {
+      loaderText.textContent = `대한민국 기적의 우승 확률 계산 중... (${progress}%)`;
+    }
+    if (loaderProgress) {
+      loaderProgress.style.width = `${progress}%`;
+    }
 
     if (currentRun < totalRuns) {
-      requestAnimationFrame(runNextChunk); // 브라우저가 프로그레스바를 다시 렌더링할 시간을 양보
+      requestAnimationFrame(runNextChunk); // 브라우저가 화면을 갱신하고 사용자 인터랙션을 처리할 기회 보장
     } else {
-      setTimeout(() => {
-        overlay.classList.add("fade-out");
-        renderMonteCarloUI();
-      }, 600);
+      renderMonteCarloUI();
     }
   }
 
-  // 부드러운 로딩 연출을 위해 약간의 딜레이 후 시작
-  setTimeout(runNextChunk, 800);
+  // 백그라운드에서 바로 시작 (인위적 딜레이 제거)
+  runNextChunk();
 }
 
 // 몬테카를로 분석 결과 카드 UI 렌더링

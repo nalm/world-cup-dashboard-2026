@@ -1472,3 +1472,21 @@ body {
   color: var(--accent-primary);
   font-weight: 700;
 }
+
+/* 백그라운드 몬테카를로 로더 */
+.mc-loader-spinner {
+  border: 3px solid rgba(255, 255, 255, 0.05);
+  border-top: 3px solid var(--accent-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: mc-spin 1s linear infinite;
+}
+.light-theme .mc-loader-spinner {
+  border: 3px solid rgba(0, 0, 0, 0.05);
+  border-top: 3px solid var(--accent-primary);
+}
+@keyframes mc-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
