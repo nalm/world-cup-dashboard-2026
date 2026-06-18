@@ -1966,7 +1966,7 @@ const ENGLISH_NAME_TO_CODE = {
   "Spain": "ESP", "Uruguay": "URU", "Saudi Arabia": "KSA", "Cape Verde": "CPV", "Cabo Verde": "CPV", "Cape Verde Islands": "CPV",
   "France": "FRA", "Senegal": "SEN", "Iraq": "IRQ", "Norway": "NOR",
   "Argentina": "ARG", "Algeria": "ALG", "Austria": "AUT", "Jordan": "JOR",
-  "Portugal": "POR", "DR Congo": "COD", "Congo DR": "COD", "Uzbekistan": "UZB", "Colombia": "COL",
+  "Portugal": "POR", "DR Congo": "COD", "Congo DR": "COD", "Democratic Republic of the Congo": "COD", "DRC": "COD", "Uzbekistan": "UZB", "Colombia": "COL",
   "England": "ENG", "Croatia": "CRO", "Ghana": "GHA", "Panama": "PAN"
 };
 
