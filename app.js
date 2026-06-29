@@ -1316,27 +1316,33 @@ function renderThirdsTable() {
 function renderKnockoutBracket() {
   const isComplete = isGroupStageComplete();
 
+  // 트리 구조에 맞춘 경기 순서 재배치 (승자들이 같은 라운드에서 직관적으로 이웃하여 만나도록 배치)
+  const r32Order = [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87];
+  const r16Order = [89, 90, 93, 94, 91, 92, 95, 96];
+  const qfOrder = [97, 98, 99, 100];
+  const sfOrder = [101, 102];
+
   // 1. 대진표 컨테이너 초기화
-  renderRoundColumn("r32-matches", R32_MIN, R32_MAX, "R32");
-  renderRoundColumn("r16-matches", R16_MIN, R16_MAX, "R16");
-  renderRoundColumn("qf-matches", QF_MIN, QF_MAX, "QF");
-  renderRoundColumn("sf-matches", SF_MIN, SF_MAX, "SF");
+  renderRoundColumn("r32-matches", r32Order, "R32");
+  renderRoundColumn("r16-matches", r16Order, "R16");
+  renderRoundColumn("qf-matches", qfOrder, "QF");
+  renderRoundColumn("sf-matches", sfOrder, "SF");
   
   // 단독 대치 컨테이너용
   renderSingleMatchCard("final-match-container", MATCH_FINAL, "FINAL");
   renderSingleMatchCard("third-place-match-container", MATCH_THIRD_PLACE, "3rdPlace");
 }
 
-function renderRoundColumn(containerId, minId, maxId, roundKey) {
+function renderRoundColumn(containerId, matchIds, roundKey) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = "";
   
-  for (let matchId = minId; matchId <= maxId; matchId++) {
+  matchIds.forEach(matchId => {
     const card = buildMatchCardElement(matchId, roundKey);
     container.appendChild(card);
-  }
+  });
 }
 
 function renderSingleMatchCard(containerId, matchId, roundKey) {
