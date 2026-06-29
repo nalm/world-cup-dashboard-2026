@@ -101,6 +101,7 @@ let groupStandings = {}; // groupLetter -> array of team objects sorted
 let thirdsStandings = []; // array of 12 third-place teams
 let r32Pairings = {}; // matchId (73~88) -> { homeTeamCode: str, awayTeamCode: str }
 let tournamentMatches = {}; // matchId (73~104) -> { homeCode: str, awayCode: str, homeScore: num, awayScore: num, pkHome: num, pkAway: num, winner: str }
+let latestActualGames = []; // 최신 실제 경기 결과 목록 (API 동기화 데이터 보존용)
 
 
 // 라운드별 경기 번호 범위
@@ -217,6 +218,7 @@ async function attemptFetchActualResults(overlay, bar, statusText, loaderTitle) 
       // 성공: 실제 결과 적용
       bar.style.width = "50%";
       statusText.textContent = "실제 결과 적용 중...";
+      latestActualGames = result.games; // API 결과를 글로벌 변수에 보존
       const updated = applyActualResults(result.games);
       console.log(`[initApp] Applied ${updated} actual match results.`);
       if (updated > 0) {
@@ -727,12 +729,83 @@ function matchThirdPlaceTeams(qualifiedGroups) {
   return null;
 }
 
+// 실제 토너먼트 경기 결과를 특정 매치 슬롯에 연동하여 고정하는 함수
+function applyActualTournamentResultForMatch(matchId) {
+  if (!latestActualGames || latestActualGames.length === 0) return;
+
+  const match = tournamentMatches[matchId];
+  if (!match.homeCode || !match.awayCode) return;
+
+  // 실제 경기 목록에서 현재 슬롯의 홈/원정 국가와 매칭되는 완료된 경기를 검색
+  const game = latestActualGames.find(g => {
+    const finished = String(g.finished).toUpperCase() === "TRUE";
+    if (!finished) return false;
+
+    // 조별 리그가 아닌 토너먼트 경기인지 검사
+    const isTournament = !(g.type === "group" || String(g.id).startsWith("G") || parseInt(g.id, 10) <= 72);
+    if (!isTournament) return false;
+
+    const homeCode = ENGLISH_NAME_TO_CODE[g.home_team_name_en];
+    const awayCode = ENGLISH_NAME_TO_CODE[g.away_team_name_en];
+    
+    return (homeCode === match.homeCode && awayCode === match.awayCode) ||
+           (homeCode === match.awayCode && awayCode === match.homeCode);
+  });
+
+  if (game) {
+    const homeCode = ENGLISH_NAME_TO_CODE[game.home_team_name_en];
+    const awayCode = ENGLISH_NAME_TO_CODE[game.away_team_name_en];
+    
+    const homeScore = parseInt(game.home_score, 10);
+    const awayScore = parseInt(game.away_score, 10);
+    
+    if (isNaN(homeScore) || isNaN(awayScore)) return;
+
+    const targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
+    const targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+
+    match.homeScore = targetHomeScore;
+    match.awayScore = targetAwayScore;
+
+    // 승부차기 처리 (무승부인 경우)
+    if (targetHomeScore === targetAwayScore) {
+      const pkHome = parseInt(game.home_pk || game.pk_home || game.home_penalty, 10);
+      const pkAway = parseInt(game.away_pk || game.pk_away || game.away_penalty, 10);
+      
+      if (!isNaN(pkHome) && !isNaN(pkAway)) {
+        match.pkHome = pkHome;
+        match.pkAway = pkAway;
+        match.winner = pkHome > pkAway ? match.homeCode : match.awayCode;
+      } else {
+        // 승부차기 결과가 없거나 파싱 실패 시, 승패 결정을 위해 임의 시뮬레이션 적용
+        const rankHome = TEAMS[match.homeCode].fifaRank;
+        const rankAway = TEAMS[match.awayCode].fifaRank;
+        const homeAdv = rankHome < rankAway ? 5 : 4;
+        const awayAdv = rankHome < rankAway ? 4 : 5;
+        match.pkHome = homeAdv;
+        match.pkAway = awayAdv;
+        match.winner = homeAdv > awayAdv ? match.homeCode : match.awayCode;
+      }
+    } else {
+      match.pkHome = null;
+      match.pkAway = null;
+      match.winner = targetHomeScore > targetAwayScore ? match.homeCode : match.awayCode;
+    }
+    
+    lockedMatches[matchId] = true; // 실제 결과 고정(Lock)
+    actualMatches[matchId] = true; // 실제 결과 표시(UI 비활성화용)
+  }
+}
+
 // --- 토너먼트 매치 결과 전파 (Round of 32 -> Final) ---
 function propagateKnockouts() {
   // 32강전(73)부터 결승전(104)까지 순서대로 계산 및 대진팀 전파 수행
   // 부모 매치의 인덱스는 자식 매치보다 항상 작으므로 단일 패스로 모든 라운드 계산 가능
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const score = tournamentMatches[matchId];
+    
+    // 대진 구성원 결정 완료 후 실제 연동 결과 적용
+    applyActualTournamentResultForMatch(matchId);
     
     // 1. 현재 매치의 승자 결정 (스코어가 존재할 경우)
     if (score.homeCode && score.awayCode && score.homeScore !== null && score.awayScore !== null) {
