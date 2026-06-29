@@ -1604,16 +1604,7 @@ function showToast(message) {
 
 let mcStats = {
   totalRuns: 0,
-  korRounds: {
-    groupOut: 0,
-    r32: 0,
-    r16: 0,
-    qf: 0,
-    sf: 0,
-    final: 0,
-    champ: 0
-  },
-  r32Opponents: {}
+  championCounts: {} // teamCode -> 우승 횟수
 };
 
 // 몬테카를로 시뮬레이션 비동기 실행 및 프로그레스바 렌더링
@@ -1625,7 +1616,7 @@ function startMonteCarloSimulation() {
     container.innerHTML = `
       <div class="mc-loader-wrapper" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; width: 100%;">
         <div class="mc-loader-spinner"></div>
-        <div style="font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; color: var(--text-primary);" id="mc-loader-text">대한민국 기적의 우승 확률 계산 중... (0%)</div>
+        <div style="font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; color: var(--text-primary);" id="mc-loader-text">월드컵 우승 예측 확률 분석 중... (0%)</div>
         <div style="width: 100%; max-width: 300px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
           <div id="mc-loader-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary)); transition: width 0.1s ease;"></div>
         </div>
@@ -1638,8 +1629,7 @@ function startMonteCarloSimulation() {
 
   mcStats = {
     totalRuns: 0,
-    korRounds: { groupOut: 0, r32: 0, r16: 0, qf: 0, sf: 0, final: 0, champ: 0 },
-    r32Opponents: {}
+    championCounts: {}
   };
 
   const totalRuns = 10000;
@@ -1650,11 +1640,8 @@ function startMonteCarloSimulation() {
     const endRun = Math.min(currentRun + chunkSize, totalRuns);
     
     for (let run = currentRun; run < endRun; run++) {
-      const result = runSingleWorldCupSimulation();
-      mcStats.korRounds[result.korStage]++;
-      if (result.korR32Opponent) {
-        mcStats.r32Opponents[result.korR32Opponent] = (mcStats.r32Opponents[result.korR32Opponent] || 0) + 1;
-      }
+      const championCode = runSingleWorldCupSimulation();
+      mcStats.championCounts[championCode] = (mcStats.championCounts[championCode] || 0) + 1;
     }
     
     currentRun = endRun;
@@ -1665,7 +1652,7 @@ function startMonteCarloSimulation() {
     const loaderProgress = document.getElementById("mc-loader-progress");
     
     if (loaderText) {
-      loaderText.textContent = `대한민국 기적의 우승 확률 계산 중... (${progress}%)`;
+      loaderText.textContent = `월드컵 우승 예측 확률 분석 중... (${progress}%)`;
     }
     if (loaderProgress) {
       loaderProgress.style.width = `${progress}%`;
@@ -1688,66 +1675,61 @@ function renderMonteCarloUI() {
   if (!container) return;
 
   const total = mcStats.totalRuns;
-  const rounds = mcStats.korRounds;
+  const sortedChamps = Object.entries(mcStats.championCounts)
+    .sort((a, b) => b[1] - a[1]);
 
-  const pGroupOut = (rounds.groupOut / total) * 100;
-  const pR32 = ((total - rounds.groupOut) / total) * 100;
-  const pR16 = ((rounds.r16 + rounds.qf + rounds.sf + rounds.final + rounds.champ) / total) * 100;
-  const pQF = ((rounds.qf + rounds.sf + rounds.final + rounds.champ) / total) * 100;
-  const pSF = ((rounds.sf + rounds.final + rounds.champ) / total) * 100;
-  const pFinal = ((rounds.final + rounds.champ) / total) * 100;
-  const pChamp = (rounds.champ / total) * 100;
+  const topChamps = sortedChamps.slice(0, 8);
 
-  const data = [
-    { label: "조별 리그 탈락률", pct: pGroupOut, color: "var(--color-loss)" },
-    { label: "32강 진출 성공률", pct: pR32, color: "var(--color-win)" },
-    { label: "16강 진출 확률", pct: pR16, color: "var(--accent-primary)" },
-    { label: "8강 진출 확률", pct: pQF, color: "var(--accent-secondary)" },
-    { label: "4강 진출 확률", pct: pSF, color: "#a855f7" },
-    { label: "결승 진출 확률", pct: pFinal, color: "#ec4899" },
-    { label: "우승 (🏆치어 업)", pct: pChamp, color: "var(--color-gold)" }
-  ];
+  container.innerHTML = topChamps.map(([code, count], idx) => {
+    const team = TEAMS[code];
+    const pct = (count / total) * 100;
+    
+    // 우승 확률 색상 등급 (1위 골드, 2위 실버, 3위 브론즈, 나머지 기본)
+    let barColor = "var(--accent-primary)";
+    if (idx === 0) barColor = "var(--color-gold)";
+    else if (idx === 1) barColor = "var(--color-silver)";
+    else if (idx === 2) barColor = "var(--color-bronze)";
 
-  container.innerHTML = data.map(item => `
-    <div class="mc-result-item">
-      <div class="mc-item-header">
-        <span class="mc-item-label">${item.label}</span>
-        <span class="mc-item-pct">${item.pct.toFixed(2)}%</span>
+    return `
+      <div class="mc-result-item">
+        <div class="mc-item-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-family: var(--font-title); font-weight: 800; font-size: 0.9rem; color: var(--text-secondary); width: 16px;">${idx + 1}</span>
+            <span style="font-size: 1.1rem; line-height: 1;">${team.flag}</span>
+            <span class="mc-item-label">${team.name}</span>
+          </div>
+          <span class="mc-item-pct">${pct.toFixed(2)}%</span>
+        </div>
+        <div class="mc-bar-container">
+          <div class="mc-bar-fill" style="width: ${pct}%; background: ${barColor}; box-shadow: 0 0 6px ${barColor}80;"></div>
+        </div>
       </div>
-      <div class="mc-bar-container">
-        <div class="mc-bar-fill" style="width: ${item.pct}%; background: ${item.color}; box-shadow: 0 0 6px ${item.color}80;"></div>
-      </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
-  // 예상 32강 상대 리스트 렌더링
+  // 대한민국 우승 확률 요약 렌더링
   const oppContainer = document.getElementById("mc-opponent-container");
   if (!oppContainer) return;
 
-  const sortedOpps = Object.entries(mcStats.r32Opponents)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
+  const korWins = mcStats.championCounts["KOR"] || 0;
+  const korPct = (korWins / total) * 100;
+  
+  const korRankIdx = sortedChamps.findIndex(([code]) => code === "KOR");
+  const korRank = korRankIdx !== -1 ? korRankIdx + 1 : sortedChamps.length + 1;
+  const korTeam = TEAMS["KOR"];
 
-  if (sortedOpps.length > 0) {
-    const badges = sortedOpps.map(([code, count]) => {
-      const team = TEAMS[code];
-      const pct = (count / total) * 100;
-      return `
-        <div class="mc-opponent-badge">
-          <span>${team.flag}</span>
-          <span>${team.name}</span>
-          <span class="pct">${pct.toFixed(1)}%</span>
-        </div>
-      `;
-    }).join("");
-
-    oppContainer.innerHTML = `
-      <h4 class="mc-opponent-title">💡 가장 확률이 높은 32강 예상 맞대결 상대 (Top 4)</h4>
-      <div class="mc-opponent-list">${badges}</div>
-    `;
-  } else {
-    oppContainer.innerHTML = "";
-  }
+  oppContainer.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 0.9rem; font-weight: 600; color: var(--text-primary); border-top: 1px dashed var(--card-border); padding-top: 15px; margin-top: 5px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span>🇰🇷</span>
+        <span>대한민국 (FIFA 랭킹 ${korTeam.fifaRank}위) 10,000회 시뮬레이션 결과:</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="color: var(--color-gold);">예상 우승 확률: <strong style="font-size: 1.1rem; font-family: var(--font-title); font-weight: 800;">${korPct.toFixed(2)}%</strong></span>
+        <span style="color: var(--text-secondary); font-size: 0.85rem;">(전체 ${korRank}위)</span>
+      </div>
+    </div>
+  `;
 }
 
 // 몬테카를로 분석용 무부하 단일 월드컵 시뮬레이터 (로컬 변수로만 동작)
@@ -1839,28 +1821,6 @@ function runSingleWorldCupSimulation() {
     return TEAMS[a.code].fifaRank - TEAMS[b.code].fifaRank;
   });
 
-  // 대한민국 Group A 통과 판별
-  const groupA = standings['A'];
-  const korIdx = groupA.findIndex(t => t.code === 'KOR');
-  let survived = false;
-  let korStage = 'groupOut';
-
-  if (korIdx < 2) {
-    survived = true;
-    korStage = 'r32';
-  } else if (korIdx === 2) {
-    const inTop8Thirds = thirds.slice(0, 8).some(t => t.code === 'KOR');
-    if (inTop8Thirds) {
-      survived = true;
-      korStage = 'r32';
-    }
-  }
-
-  // 조별 예선에서 탈락 시 연산 단축을 위해 즉시 리턴
-  if (!survived) {
-    return { korStage: 'groupOut', korR32Opponent: null };
-  }
-
   // 8개 와일드카드 3위 팀 대진 백트래킹 매칭
   const qualifiedThirds = thirds.slice(0, 8);
   const qualifiedGroups = qualifiedThirds.map(t => t.group).sort();
@@ -1912,7 +1872,7 @@ function runSingleWorldCupSimulation() {
     localMatches[matchId].awayCode = awayCode;
   }
 
-  // 본선 토너먼트 시뮬레이션 수행
+  // 本선 토너먼트 시뮬레이션 수행
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const m = localMatches[matchId];
     
@@ -1946,44 +1906,8 @@ function runSingleWorldCupSimulation() {
     }
   }
 
-  // 대한민국의 대진 경로 추적
-  let koreaMatch = Object.keys(localMatches).find(id => id <= 88 && (localMatches[id].homeCode === 'KOR' || localMatches[id].awayCode === 'KOR'));
-  koreaMatch = parseInt(koreaMatch);
-  const opp = localMatches[koreaMatch].homeCode === 'KOR' ? localMatches[koreaMatch].awayCode : localMatches[koreaMatch].homeCode;
-
-  if (localMatches[koreaMatch].winner !== 'KOR') {
-    return { korStage: 'r32', korR32Opponent: opp };
-  }
-
-  // 16강 진출 여부 확인
-  let nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
-  nextMatchId = parseInt(nextMatchId);
-  if (localMatches[nextMatchId].winner !== 'KOR') {
-    return { korStage: 'r16', korR32Opponent: opp };
-  }
-
-  // 8강 진출 여부 확인
-  koreaMatch = nextMatchId;
-  nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
-  nextMatchId = parseInt(nextMatchId);
-  if (localMatches[nextMatchId].winner !== 'KOR') {
-    return { korStage: 'qf', korR32Opponent: opp };
-  }
-
-  // 4강 진출 여부 확인
-  koreaMatch = nextMatchId;
-  nextMatchId = Object.keys(TOURNAMENT_PATHWAYS).find(id => TOURNAMENT_PATHWAYS[id].parent1 === koreaMatch || TOURNAMENT_PATHWAYS[id].parent2 === koreaMatch);
-  nextMatchId = parseInt(nextMatchId);
-  if (localMatches[nextMatchId].winner !== 'KOR') {
-    return { korStage: 'sf', korR32Opponent: opp };
-  }
-
-  // 결승/우승 검사
-  if (localMatches[104].winner === 'KOR') {
-    return { korStage: 'champ', korR32Opponent: opp };
-  } else {
-    return { korStage: 'final', korR32Opponent: opp };
-  }
+  // 결승전 우승국 코드 반환
+  return localMatches[MATCH_FINAL].winner;
 }
 
 // 몬테카를로 내부용 경기 우승자 판별 (PK 판정 포함)
