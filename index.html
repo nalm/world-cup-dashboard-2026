@@ -216,9 +216,14 @@
 
       <!-- 탭 4: 본선 토너먼트 대진표 (Knockout Bracket) -->
       <section id="tab-bracket" class="tab-panel">
-        <div class="stage-control-header">
-          <h2>본선 토너먼트 대진표 (Knockout Stages)</h2>
-          <p>조별 예선이 끝나면 32강 대진표가 구성되며, 경기 결과를 직접 입력하거나 각 경기별 시뮬레이션 단추를 눌러 결과를 예측할 수 있습니다.</p>
+        <div class="stage-control-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2>본선 토너먼트 대진표 (Knockout Stages)</h2>
+            <p>조별 예선이 끝나면 32강 대진표가 구성되며, 경기 결과를 직접 입력하거나 각 경기별 시뮬레이션 단추를 눌러 결과를 예측할 수 있습니다.</p>
+          </div>
+          <button id="btn-bracket-sim-knockouts" class="btn btn-primary" style="margin-left: auto;">
+            ⚡ 토너먼트 시뮬레이션
+          </button>
         </div>
         <div class="bracket-viewport">
           <div class="bracket-container" id="bracket-container">

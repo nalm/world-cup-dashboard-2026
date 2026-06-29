@@ -221,18 +221,20 @@ async function attemptFetchActualResults(overlay, bar, statusText, loaderTitle) 
       latestActualGames = result.games; // API 결과를 글로벌 변수에 보존
       const updated = applyActualResults(result.games);
       console.log(`[initApp] Applied ${updated} actual match results.`);
-      if (updated > 0) {
-        showToast(`✅ 실제 경기 결과 ${updated}개 연동 완료!`);
-      } else {
-        showToast("ℹ️ 동기화 완료: 진행된 새로운 실제 경기가 없습니다.");
-      }
-
       // 시뮬레이션 실행 후 대시보드 업데이트
       simulateGroupStage();
       calculateAll();
       simulateKnockoutStage();
       calculateAll();
       updateUI();
+
+      // 토너먼트 매핑까지 모두 끝난 후 실제 연동 완료된 경기의 총합을 집계
+      const totalActualCount = Object.keys(actualMatches).length;
+      if (totalActualCount > 0) {
+        showToast(`✅ 실제 경기 결과 총 ${totalActualCount}개 연동 완료!`);
+      } else {
+        showToast("ℹ️ 동기화 완료: 진행된 실제 경기가 없습니다.");
+      }
       return true;
     }
 
@@ -364,15 +366,16 @@ function bindEvents() {
 
   // 토너먼트만 시뮬레이션
   document.getElementById("btn-quick-knockouts").addEventListener("click", () => {
-    if (!isGroupStageComplete()) {
-      showToast("⚠️ 조별 예선 경기가 모두 채워진 후 토너먼트 시뮬레이션이 가능합니다.");
-      return;
-    }
-    simulateKnockoutStage();
-    calculateAll();
-    updateUI();
-    showToast("🌿 토너먼트 시뮬레이션 완료! 최종 우승자가 결정되었습니다.");
+    runTournamentSimulation();
   });
+
+  // 대진표 탭 내의 토너먼트 시뮬레이션 버튼
+  const btnBracketSim = document.getElementById("btn-bracket-sim-knockouts");
+  if (btnBracketSim) {
+    btnBracketSim.addEventListener("click", () => {
+      runTournamentSimulation();
+    });
+  }
 
   // 초기화 버튼
   document.getElementById("btn-reset").addEventListener("click", () => {
@@ -385,6 +388,18 @@ function bindEvents() {
     startMonteCarloSimulation();
   });
 
+}
+
+// 토너먼트 시뮬레이션 실행 및 결과 업데이트 공통 로직
+function runTournamentSimulation() {
+  if (!isGroupStageComplete()) {
+    showToast("⚠️ 조별 예선 경기가 모두 채워진 후 토너먼트 시뮬레이션이 가능합니다.");
+    return;
+  }
+  simulateKnockoutStage();
+  calculateAll();
+  updateUI();
+  showToast("🌿 토너먼트 시뮬레이션 완료! 최종 우승자가 결정되었습니다.");
 }
 
 // --- 조별 예선 카드 생성 및 렌더링 ---
@@ -939,8 +954,8 @@ function simulateKnockoutStage() {
   for (let matchId = R32_MIN; matchId <= MATCH_FINAL; matchId++) {
     const match = tournamentMatches[matchId];
     if (match.homeCode && match.awayCode) {
-      // 실제 경기 결과(API 동기화)만 보존
-      if (actualMatches[matchId]) {
+      // 실제 경기 결과(API 동기화) 또는 수동 고정(Lock)된 경기 결과 보존
+      if (actualMatches[matchId] || lockedMatches[matchId]) {
         continue;
       }
       
