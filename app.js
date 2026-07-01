@@ -791,21 +791,36 @@ function applyActualTournamentResultForMatch(matchId) {
     
     if (isNaN(homeScore) || isNaN(awayScore)) return;
 
-    const targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
-    const targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+    let targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
+    let targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+
+    // 승부차기 점수 파싱
+    const rawPkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
+    const rawPkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
+    
+    const hasPk = !isNaN(rawPkHome) && !isNaN(rawPkAway);
+    let targetPkHome = hasPk ? (match.homeCode === homeCode ? rawPkHome : rawPkAway) : null;
+    let targetPkAway = hasPk ? (match.homeCode === homeCode ? rawPkAway : rawPkHome) : null;
+
+    // 만약 전달된 점수가 승부차기 점수를 합산한 결과물인 경우 (예: 정규시간 1-1, PK 3-4 인데 점수가 4-5 로 온 경우)
+    if (hasPk && targetHomeScore >= targetPkHome && targetAwayScore >= targetPkAway) {
+      const diffHome = targetHomeScore - targetPkHome;
+      const diffAway = targetAwayScore - targetPkAway;
+      if (diffHome === diffAway) {
+        targetHomeScore = diffHome;
+        targetAwayScore = diffAway;
+      }
+    }
 
     match.homeScore = targetHomeScore;
     match.awayScore = targetAwayScore;
 
     // 승부차기 처리 (무승부인 경우)
     if (targetHomeScore === targetAwayScore) {
-      const pkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
-      const pkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
-      
-      if (!isNaN(pkHome) && !isNaN(pkAway)) {
-        match.pkHome = pkHome;
-        match.pkAway = pkAway;
-        match.winner = pkHome > pkAway ? match.homeCode : match.awayCode;
+      if (hasPk) {
+        match.pkHome = targetPkHome;
+        match.pkAway = targetPkAway;
+        match.winner = targetPkHome > targetPkAway ? match.homeCode : match.awayCode;
       } else {
         // 승부차기 결과가 없거나 파싱 실패 시, 승패 결정을 위해 임의 시뮬레이션 적용
         const rankHome = TEAMS[match.homeCode].fifaRank;
@@ -2150,8 +2165,26 @@ function applyActualResults(apiGames) {
         if ((match.homeCode === homeCode && match.awayCode === awayCode) ||
             (match.homeCode === awayCode && match.awayCode === homeCode)) {
           
-          const targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
-          const targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+          let targetHomeScore = match.homeCode === homeCode ? homeScore : awayScore;
+          let targetAwayScore = match.homeCode === homeCode ? awayScore : homeScore;
+
+          // 승부차기 점수 파싱
+          const rawPkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
+          const rawPkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
+          
+          const hasPk = !isNaN(rawPkHome) && !isNaN(rawPkAway);
+          let targetPkHome = hasPk ? (match.homeCode === homeCode ? rawPkHome : rawPkAway) : null;
+          let targetPkAway = hasPk ? (match.homeCode === homeCode ? rawPkAway : rawPkHome) : null;
+
+          // 만약 전달된 점수가 승부차기 점수를 합산한 결과물인 경우 (예: 정규시간 1-1, PK 3-4 인데 점수가 4-5 로 온 경우)
+          if (hasPk && targetHomeScore >= targetPkHome && targetAwayScore >= targetPkAway) {
+            const diffHome = targetHomeScore - targetPkHome;
+            const diffAway = targetAwayScore - targetPkAway;
+            if (diffHome === diffAway) {
+              targetHomeScore = diffHome;
+              targetAwayScore = diffAway;
+            }
+          }
 
           if (match.homeScore !== targetHomeScore || match.awayScore !== targetAwayScore) {
             match.homeScore = targetHomeScore;
@@ -2159,13 +2192,10 @@ function applyActualResults(apiGames) {
 
             // 승부차기 처리 (무승부인 경우)
             if (targetHomeScore === targetAwayScore) {
-              const pkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
-              const pkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
-              
-              if (!isNaN(pkHome) && !isNaN(pkAway)) {
-                match.pkHome = pkHome;
-                match.pkAway = pkAway;
-                match.winner = pkHome > pkAway ? match.homeCode : match.awayCode;
+              if (hasPk) {
+                match.pkHome = targetPkHome;
+                match.pkAway = targetPkAway;
+                match.winner = targetPkHome > targetPkAway ? match.homeCode : match.awayCode;
               } else {
                 // 승부차기 결과가 없거나 파싱 실패 시, 승패 결정을 위해 임의 시뮬레이션 적용
                 const rankHome = TEAMS[match.homeCode].fifaRank;
