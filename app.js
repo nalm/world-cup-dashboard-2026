@@ -128,21 +128,21 @@ const GROUP_MATCH_SCHEME = [
 // 3X = 3위 팀 매칭 (Annex C 백트래킹 계산 결과 연동)
 const R32_FIXED_SCHEME = {
   73: { home: "2A", away: "2B" },
-  74: { home: "1E", away: "3rd_74" }, // 3A/B/C/D/F
+  74: { home: "1E", away: "3rd_74" },
   75: { home: "1F", away: "2C" },
   76: { home: "1C", away: "2F" },
-  77: { home: "1I", away: "3rd_77" }, // 3C/D/F/G/H
-  78: { home: "1H", away: "2J" },
-  79: { home: "1D", away: "3rd_79" }, // 3B/E/F/I/J
-  80: { home: "1G", away: "3rd_80" }, // 3A/E/H/I/J
-  81: { home: "1B", away: "3rd_81" }, // 3E/F/G/I/J
-  82: { home: "2D", away: "2G" },
-  83: { home: "1J", away: "2H" },
-  84: { home: "1K", away: "3rd_84" }, // 3D/E/I/J/L
-  85: { home: "2E", away: "2I" },
-  86: { home: "1A", away: "3rd_86" }, // 3C/E/F/H/I
-  87: { home: "2K", away: "2L" },
-  88: { home: "1L", away: "3rd_88" }  // 3E/H/I/J/K
+  77: { home: "1I", away: "3rd_77" },
+  78: { home: "2E", away: "2I" },     // Ivory Coast (2E) vs Norway (2I)
+  79: { home: "1A", away: "3rd_79" }, // Mexico (1A) vs Ecuador (3E)
+  80: { home: "1L", away: "3rd_80" }, // England (1L) vs DR Congo (3K)
+  81: { home: "1D", away: "3rd_81" }, // USA (1D) vs Bosnia (3B)
+  82: { home: "1G", away: "3rd_82" }, // Belgium (1G) vs Senegal (3I)
+  83: { home: "2K", away: "2L" },     // Portugal (2K) vs Croatia (2L)
+  84: { home: "1H", away: "2J" },     // Spain (1H) vs Austria (2J)
+  85: { home: "1B", away: "3rd_85" }, // Switzerland (1B) vs Algeria (3J)
+  86: { home: "1J", away: "2H" },     // Argentina (1J) vs Cape Verde (2H)
+  87: { home: "1K", away: "3rd_87" }, // Colombia (1K) vs Ghana (3L)
+  88: { home: "2D", away: "2G" }      // Australia (2D) vs Egypt (2G)
 };
 
 // 토너먼트 상위 단계 진행 경로 정의
@@ -711,15 +711,30 @@ function clearRoundOf32Matches() {
 
 // 3위 팀 매칭 백트래킹 알고리즘
 function matchThirdPlaceTeams(qualifiedGroups) {
+  // 실제 완료된 조별 예선의 상위 3위 조 조합인 경우, FIFA 공식 Annex C 매칭 결과 우선 리턴
+  const key = qualifiedGroups.join(',');
+  if (key === 'B,D,E,F,I,J,K,L') {
+    return {
+      '74': 'D',
+      '77': 'F',
+      '79': 'E',
+      '80': 'K',
+      '81': 'B',
+      '82': 'I',
+      '85': 'J',
+      '87': 'L'
+    };
+  }
+
   const slots = [
     { id: 74, options: ['A', 'B', 'C', 'D', 'F'] },
     { id: 77, options: ['C', 'D', 'F', 'G', 'H'] },
-    { id: 79, options: ['B', 'E', 'F', 'I', 'J'] },
-    { id: 80, options: ['A', 'E', 'H', 'I', 'J'] },
-    { id: 81, options: ['E', 'F', 'G', 'I', 'J'] },
-    { id: 84, options: ['D', 'E', 'I', 'J', 'L'] },
-    { id: 86, options: ['C', 'E', 'F', 'H', 'I'] },
-    { id: 88, options: ['E', 'H', 'I', 'J', 'K'] }
+    { id: 79, options: ['C', 'E', 'F', 'H', 'I'] }, // old 86
+    { id: 80, options: ['E', 'H', 'I', 'J', 'K'] }, // old 88
+    { id: 81, options: ['B', 'E', 'F', 'I', 'J'] }, // old 79
+    { id: 82, options: ['A', 'E', 'H', 'I', 'J'] }, // old 80
+    { id: 85, options: ['E', 'F', 'G', 'I', 'J'] }, // old 81
+    { id: 87, options: ['D', 'E', 'I', 'J', 'L'] }  // old 84
   ];
 
   const assignment = {};
@@ -1936,15 +1951,30 @@ function simulateWinnerLocal(code1, code2) {
 
 // 몬테카를로 내부용 3위 매치 백트래킹 포뮬러
 function matchThirdPlaceTeamsLocal(qualifiedGroups) {
+  // 실제 완료된 조별 예선의 상위 3위 조 조합인 경우, FIFA 공식 Annex C 매칭 결과 우선 리턴
+  const key = qualifiedGroups.join(',');
+  if (key === 'B,D,E,F,I,J,K,L') {
+    return {
+      '74': 'D',
+      '77': 'F',
+      '79': 'E',
+      '80': 'K',
+      '81': 'B',
+      '82': 'I',
+      '85': 'J',
+      '87': 'L'
+    };
+  }
+
   const slots = [
     { id: 74, options: ['A', 'B', 'C', 'D', 'F'] },
     { id: 77, options: ['C', 'D', 'F', 'G', 'H'] },
-    { id: 79, options: ['B', 'E', 'F', 'I', 'J'] },
-    { id: 80, options: ['A', 'E', 'H', 'I', 'J'] },
-    { id: 81, options: ['E', 'F', 'G', 'I', 'J'] },
-    { id: 84, options: ['D', 'E', 'I', 'J', 'L'] },
-    { id: 86, options: ['C', 'E', 'F', 'H', 'I'] },
-    { id: 88, options: ['E', 'H', 'I', 'J', 'K'] }
+    { id: 79, options: ['C', 'E', 'F', 'H', 'I'] }, // old 86
+    { id: 80, options: ['E', 'H', 'I', 'J', 'K'] }, // old 88
+    { id: 81, options: ['B', 'E', 'F', 'I', 'J'] }, // old 79
+    { id: 82, options: ['A', 'E', 'H', 'I', 'J'] }, // old 80
+    { id: 85, options: ['E', 'F', 'G', 'I', 'J'] }, // old 81
+    { id: 87, options: ['D', 'E', 'I', 'J', 'L'] }  // old 84
   ];
 
   const assignment = {};
