@@ -847,8 +847,6 @@ function propagateKnockouts() {
         // 무승부일 경우 승부차기(PK) 결과를 검사하여 승자 판별
         if (score.pkHome !== null && score.pkAway !== null) {
           score.winner = score.pkHome > score.pkAway ? score.homeCode : score.awayCode;
-        } else if (score.winner === score.homeCode || score.winner === score.awayCode) {
-          // 이미 승자가 지정되어 있으면 유지 (승부차기 없는 시뮬레이션 결과 반영용)
         } else {
           score.winner = ""; // PK 입력 대기
         }
@@ -986,15 +984,31 @@ function simulateKnockoutStage() {
       match.homeScore = result.goals1;
       match.awayScore = result.goals2;
 
-      // 무승부일 경우 승부차기를 배제하고 피파 랭킹 기반으로 바로 승자 결정
+      // 무승부일 경우 승부차기 시뮬레이션
       if (result.goals1 === result.goals2) {
+        // 승부차기는 최소 3-2 등 결정이 날 때까지 롤링
+        // 피파 랭킹 높은 팀에게 52%의 미세한 우위 제공
         const rankHome = TEAMS[match.homeCode].fifaRank;
         const rankAway = TEAMS[match.awayCode].fifaRank;
         const homeAdvantage = rankHome < rankAway ? 0.52 : 0.48;
 
-        match.pkHome = null;
-        match.pkAway = null;
-        match.winner = Math.random() < homeAdvantage ? match.homeCode : match.awayCode;
+        let pkH = 0;
+        let pkA = 0;
+        
+        // 5회 킥 기준 시뮬레이션
+        for (let j = 0; j < 5; j++) {
+          if (Math.random() < (0.75 * (homeAdvantage / 0.5))) pkH++;
+          if (Math.random() < (0.75 * ((1 - homeAdvantage) / 0.5))) pkA++;
+        }
+        
+        // 동점 시 서든데스
+        while (pkH === pkA) {
+          if (Math.random() < 0.7) pkH++;
+          if (Math.random() < 0.7) pkA++;
+        }
+
+        match.pkHome = pkH;
+        match.pkAway = pkA;
       } else {
         match.pkHome = null;
         match.pkAway = null;
@@ -1528,14 +1542,26 @@ function simulateSingleKnockout(matchId) {
   match.awayScore = result.goals2;
 
   if (result.goals1 === result.goals2) {
-    // 동점 시 승부차기를 배제하고 피파 랭킹 기반으로 바로 승자 결정
+    // 동점 시 승부차기 강제 시뮬레이션
     const rankHome = TEAMS[match.homeCode].fifaRank;
     const rankAway = TEAMS[match.awayCode].fifaRank;
     const homeAdvantage = rankHome < rankAway ? 0.52 : 0.48;
 
-    match.pkHome = null;
-    match.pkAway = null;
-    match.winner = Math.random() < homeAdvantage ? match.homeCode : match.awayCode;
+    let pkH = 0;
+    let pkA = 0;
+    
+    for (let j = 0; j < 5; j++) {
+      if (Math.random() < (0.75 * (homeAdvantage / 0.5))) pkH++;
+      if (Math.random() < (0.75 * ((1 - homeAdvantage) / 0.5))) pkA++;
+    }
+    
+    while (pkH === pkA) {
+      if (Math.random() < 0.7) pkH++;
+      if (Math.random() < 0.7) pkA++;
+    }
+
+    match.pkHome = pkH;
+    match.pkAway = pkA;
   } else {
     match.pkHome = null;
     match.pkAway = null;
