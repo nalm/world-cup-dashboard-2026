@@ -918,8 +918,8 @@ function simulateGroup(groupLetter) {
   const teamCodes = GROUPS[groupLetter];
   for (let i = 0; i < 6; i++) {
     const matchId = `G_${groupLetter}_${i}`;
-    // 실제 경기 결과(API 동기화)만 시뮬레이션에서 건너뜀
-    if (actualMatches[matchId]) {
+    // 실제 경기 결과(API 동기화) 또는 수동 고정(Lock)된 경기 결과 보존
+    if (actualMatches[matchId] || lockedMatches[matchId]) {
       continue;
     }
     
@@ -1754,8 +1754,8 @@ function runSingleWorldCupSimulation() {
       const awayCode = teamCodes[awayIdx];
 
       let g1, g2;
-      // 글로벌 matchScores에 실제 경기 결과(actual)가 등록되어 있는지 체크
-      if (actualMatches[matchId]) {
+      // 글로벌 matchScores에 실제 경기 결과(actual) 또는 수동 고정(Lock)된 경기 결과 체크
+      if (actualMatches[matchId] || lockedMatches[matchId]) {
         const globalScore = matchScores[matchId];
         g1 = globalScore.homeScore;
         g2 = globalScore.awayScore;
@@ -1892,8 +1892,8 @@ function runSingleWorldCupSimulation() {
     }
 
     if (m.homeCode && m.awayCode) {
-      // 글로벌 tournamentMatches에 실제 결과(actual)가 존재하고 매치업 국가가 동일하다면 그대로 사용
-      if (actualMatches[matchId]) {
+      // 글로벌 tournamentMatches에 실제 결과(actual) 또는 수동 고정(Lock)된 결과가 존재하고 매치업 국가가 동일하다면 그대로 사용
+      if (actualMatches[matchId] || lockedMatches[matchId]) {
         const globalKO = tournamentMatches[matchId];
         if (globalKO && globalKO.homeCode === m.homeCode && globalKO.awayCode === m.awayCode) {
           m.winner = globalKO.winner;
