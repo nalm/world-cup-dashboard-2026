@@ -784,8 +784,8 @@ function applyActualTournamentResultForMatch(matchId) {
 
     // 승부차기 처리 (무승부인 경우)
     if (targetHomeScore === targetAwayScore) {
-      const pkHome = parseInt(game.home_pk || game.pk_home || game.home_penalty, 10);
-      const pkAway = parseInt(game.away_pk || game.pk_away || game.away_penalty, 10);
+      const pkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
+      const pkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
       
       if (!isNaN(pkHome) && !isNaN(pkAway)) {
         match.pkHome = pkHome;
@@ -2121,8 +2121,8 @@ function applyActualResults(apiGames) {
 
             // 승부차기 처리 (무승부인 경우)
             if (targetHomeScore === targetAwayScore) {
-              const pkHome = parseInt(game.home_pk || game.pk_home || game.home_penalty, 10);
-              const pkAway = parseInt(game.away_pk || game.pk_away || game.away_penalty, 10);
+              const pkHome = parseInt(game.home_penalty_score || game.home_pk || game.pk_home || game.home_penalty, 10);
+              const pkAway = parseInt(game.away_penalty_score || game.away_pk || game.pk_away || game.away_penalty, 10);
               
               if (!isNaN(pkHome) && !isNaN(pkAway)) {
                 match.pkHome = pkHome;
