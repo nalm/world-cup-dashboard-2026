@@ -1419,10 +1419,14 @@ function buildMatchCardElement(matchId, roundKey) {
         <span class="team-name" title="${homeLabel}">${homeLabel}</span>
       </div>
       <div class="ko-score-block">
-        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="PK" value="${match.pkHome !== null ? match.pkHome : ''}" ${isFinished ? 'disabled' : ''}>` : ''}
         <input type="number" min="0" max="99" class="score-input ko-score ko-score-input" 
                id="score-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="-" 
                value="${match.homeScore !== null ? match.homeScore : ''}" ${isHomeDisabled ? 'disabled' : ''}>
+        ${showPK ? `
+          <span class="pk-bracket">(</span>
+          <input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-home" data-match="${matchId}" data-side="home" placeholder="PK" value="${match.pkHome !== null ? match.pkHome : ''}" ${isFinished ? 'disabled' : ''}>
+          <span class="pk-bracket">)</span>
+        ` : ''}
       </div>
     </div>
     
@@ -1433,10 +1437,14 @@ function buildMatchCardElement(matchId, roundKey) {
         <span class="team-name" title="${awayLabel}">${awayLabel}</span>
       </div>
       <div class="ko-score-block">
-        ${showPK ? `<input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="PK" value="${match.pkAway !== null ? match.pkAway : ''}" ${isFinished ? 'disabled' : ''}>` : ''}
         <input type="number" min="0" max="99" class="score-input ko-score ko-score-input" 
                id="score-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="-" 
                value="${match.awayScore !== null ? match.awayScore : ''}" ${isAwayDisabled ? 'disabled' : ''}>
+        ${showPK ? `
+          <span class="pk-bracket">(</span>
+          <input type="number" class="pk-input ko-pk-input" id="pk-${matchId}-away" data-match="${matchId}" data-side="away" placeholder="PK" value="${match.pkAway !== null ? match.pkAway : ''}" ${isFinished ? 'disabled' : ''}>
+          <span class="pk-bracket">)</span>
+        ` : ''}
       </div>
     </div>
   `;

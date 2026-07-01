@@ -994,6 +994,17 @@ body {
 .pk-input:focus {
   border-color: var(--color-loss);
 }
+.pk-bracket {
+  color: var(--color-loss);
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 1px;
+  user-select: none;
+}
+.light-theme .pk-bracket {
+  color: #e11d48;
+}
 
 /* 결승전 컬럼용 서브그룹 */
 .finals-matches {
